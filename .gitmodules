@@ -1,0 +1,3 @@
+[submodule "VocalTractLabBackend-dev"]
+	path = VocalTractLabBackend-dev
+	url = https://github.com/TUD-STKS/VocalTractLabBackend-dev
