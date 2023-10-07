@@ -2,14 +2,13 @@
 
 
 
-#path must be relative to setup.py
+##path must be relative to setup.py
 
 import os
 import atexit
 import logging as log
 import warnings
 import numpy as np
-import pandas as pd
 
 #from .cVocalTractLabApi cimport vtlCalcTongueRootAutomatically
 
@@ -265,26 +264,81 @@ def get_param_info( params ):
 			)
 	#descriptions = descriptions.decode().replace('\x00', '').strip(' ').strip('').split('\t')
 	#units = units.decode().replace('\x00', '').strip(' ').strip( '' ).split('\t')
+	names = format_cstring( cNames )
 	descriptions = format_cstring( cDescriptions )
 	units = format_cstring( cUnits )
-	df = pd.DataFrame(
-		np.array( [
+	
+	# instead of df put in a list of dicts
+	param_info = [
+		dict(
+			name = name,
+			description = desc,
+			unit = unit,
+			min = min_v,
+			max = max_v,
+			standard = std_v,
+			)
+		for name, desc, unit, min_v, max_v, std_v in zip(
+			names,
 			descriptions,
 			units,
 			cParamMin,
 			cParamMax,
 			cParamStandard,
-			] ).T,
-		columns = [
-			'description',
-			'unit',
-			'min',
-			'max',
-			'standard',
-			]
+			)
+		]
+	#df = pd.DataFrame(
+	#	np.array( [
+	#		descriptions,
+	#		units,
+	#		cParamMin,
+	#		cParamMax,
+	#		cParamStandard,
+	#		] ).T,
+	#	columns = [
+	#		'description',
+	#		'unit',
+	#		'min',
+	#		'max',
+	#		'standard',
+	#		]
+	#	)
+	#df.index = format_cstring( cNames )
+	return param_info
+
+def get_shape(
+		shape_name: str,
+		params: str,
+		):
+	if params not in [ 'tract', 'glottis' ]:
+		raise ValueError(
+			'Argument params must be either "tract" or "glottis".'
+			)
+	if params == 'tract':
+		key = 'n_tract_params'
+		vtlGetParams = vtlGetTractParams
+	elif params == 'glottis':
+		key = 'n_glottis_params'
+		vtlGetParams = vtlGetGlottisParams
+	vtl_constants = get_constants()
+	cShapeName = shape_name.encode()
+	cdef np.ndarray[ np.float64_t, ndim=1 ] cParams = np.empty(
+		shape = vtl_constants[ key ],
+		dtype='float64',
 		)
-	df.index = format_cstring( cNames )
-	return df
+	value = vtlGetParams(
+		cShapeName,
+		&cParams[ 0 ],
+		)
+	if value != 0:
+		raise VtlApiError(
+			get_api_exception(
+				function_name = vtlGetParams.__name__,
+				return_value = value,
+				)
+			)
+	shape = np.array( cParams )
+	return shape
 
 def get_version():
 	'''
@@ -616,7 +670,7 @@ def tract_state_to_tube_state(
 		velum_opening = velum_opening,
 		)
 	return tube_state
-
+'''
 def tract_state_to_ema_and_mesh(
 		tract_state: np.ndarray,
 		ema_file_path: str = None,
@@ -655,7 +709,7 @@ def tract_state_to_ema_and_mesh(
 				)
 			)
 	return
-
+'''
 	
 
 # Function to be called at module exit
