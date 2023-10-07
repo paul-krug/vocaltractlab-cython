@@ -7,24 +7,44 @@ from setuptools.extension import Extension
 from Cython.Build import cythonize
 import numpy as np
 
+API_NAME = 'VocalTractLabApi'
 WORKING_PATH = os.getcwd()
-BACKEND_PATH = os.path.join( 'vocaltractlab_cython', 'src', 'vocaltractlab-backend' )
+BACKEND_PATH = os.path.join( 'VocalTractLabBackend-dev' )
+BUILD_PATH = os.path.join( BACKEND_PATH, 'out' )
+API_INC_PATH = os.path.join( BACKEND_PATH, 'include', API_NAME )
+
+cmd_config = [
+    'cmake',
+    '..',
+    '-DCMAKE_BUILD_TYPE=Release',
+    ]
+
+cmd_build = [
+    'cmake',
+    '--build',
+    '.',
+    '--config',
+    'Release',
+    '--target',
+    'VocalTractLabApi',
+    ]
 
 def build_vtl_api():
     print( 'Building VocalTractLab-Backend using cmake:' )
-    os.chdir( BACKEND_PATH )
+    os.makedirs( BUILD_PATH, exist_ok=True )
+    os.chdir( BUILD_PATH )
     #with TemporaryDirectory() as tmpdir:
     #    os.chdir(tmpdir)
-    #subprocess.check_call( [ 'cmake', '.' ] )
-    #subprocess.check_call( [ 'cmake', '--build', '.', '--config', 'Release' ] )
-    subprocess.check_call( [ 'cmake', '.', '-DCMAKE_BUILD_TYPE=Release' ] )
-    subprocess.check_call( [ 'cmake', '--build', '.', '--target', 'VocalTractLabApi', '--config', 'Release' ] )
+    
+    subprocess.check_call( cmd_config )
+    subprocess.check_call( cmd_build )
 
-    api_name = 'VocalTractLabApi'
-    if sys.platform == 'win32':
-        file_extension = '.dll'
-        shutil.copy( os.path.join( 'Release', api_name + file_extension ), os.path.join( WORKING_PATH, 'VocalTractLab' ) )
-        shutil.copy( os.path.join( 'Release', api_name + '.lib' ), os.path.join( WORKING_PATH, 'VocalTractLab' ) )
+
+    #api_name = 'VocalTractLabApi'
+    #if sys.platform == 'win32':
+    #    file_extension = '.dll'
+    #    shutil.copy( os.path.join( 'Release', api_name + file_extension ), os.path.join( WORKING_PATH, 'VocalTractLab' ) )
+    #    shutil.copy( os.path.join( 'Release', api_name + '.lib' ), os.path.join( WORKING_PATH, 'VocalTractLab' ) )
     #else:
     #    file_extension = '.so'
     #    try:
@@ -33,10 +53,34 @@ def build_vtl_api():
     #        print( 'WARNING: Could not move libVocalTractLabApi to standard location /usr/local/lib/ ' +
     #            ' Make shure you have permission or manually move the file to an appropriate location.' +
     #            'File is located at {}'.format( os.path.join( WORKING_PATH, 'libVocalTractLabApi.so' ) ) )
-    shutil.copy( os.path.join( '', api_name + '.h' ), os.path.join( WORKING_PATH, 'VocalTractLab' ) )
-    #print( ' chir dir: ' )
-    #print( os.listdir( os.getcwd() ) )
+
     os.chdir( WORKING_PATH )
+    # Copy API header file from backend to vtl_cython
+    shutil.copy(
+        os.path.join(
+            API_INC_PATH,
+            API_NAME + '.h',
+            ),
+        os.path.join(
+            WORKING_PATH,
+            'vocaltractlab_cython',
+            )
+        )
+    # Copy the resource folder from backend to vtl_cython
+    shutil.copytree(
+        os.path.join(
+            BACKEND_PATH,
+            'resources',
+            ),
+        os.path.join(
+            WORKING_PATH,
+            'vocaltractlab_cython',
+            'resources',
+            )
+        )
+    
+    # Delete the build folder
+    shutil.rmtree( BUILD_PATH )
     return
 
 
@@ -52,42 +96,22 @@ def build_vtl_api():
 
 #build_vtl_api()
 
+if sys.platform == 'win32':
+    runtime_library_dirs = None
+elif sys.platform == 'darwin':
+    runtime_library_dirs = [ '@loader_path', '@loader_path/VocalTractLab' ]
+else:
+    runtime_library_dirs = [ '$ORIGIN' ]#, '$ORIGIN/VocalTractLab' ]
+
 vtl_api_extension = Extension(
     'vocaltractlab_cython.VocalTractLabApi',
     sources = [
         'vocaltractlab_cython/VocalTractLabApi.pyx',
-        'vocaltractlab_cython/src/vocaltractlab-backend/AnatomyParams.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/Dsp.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/F0EstimatorYin.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/GeometricGlottis.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/Geometry.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/GesturalScore.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/Glottis.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/IirFilter.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/ImpulseExcitation.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/LfPulse.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/Matrix2x2.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/PoleZeroPlan.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/Sampa.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/SegmentSequence.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/StaticPhone.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/Surface.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/Synthesizer.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/TdsModel.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/TimeFunction.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/TlModel.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/TriangularGlottis.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/Tube.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/TwoMassModel.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/VocalTract.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/VocalTractLabApi.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/VoiceQualityEstimator.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/VowelLf.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/XmlHelper.cpp',
-        'vocaltractlab_cython/src/vocaltractlab-backend/XmlNode.cpp',
         ],
     language="c++",
-    extra_compile_args=['-std=c++11'],
+    libraries=[ 'vocaltractlab_cython/VocalTractLabApi' ],
+    runtime_library_dirs=runtime_library_dirs,
+    #extra_compile_args=['-std=c++11'],
 )
 
 #EXT_MODULES = cythonize( 'vocaltractlab_cython/VocalTractLabApi.pyx' )
