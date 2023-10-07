@@ -5,7 +5,7 @@ import shutil
 from setuptools import setup
 from setuptools.extension import Extension
 from Cython.Build import cythonize
-#import numpy as np
+import numpy as np
 
 API_NAME = 'VocalTractLabApi'
 WORKING_PATH = os.getcwd()
@@ -96,8 +96,8 @@ def build_vtl_api():
 #    #runtime_library_dirs=runtime_library_dirs #'./', './VocalTractLab/', './VocalTractLab/VocalTractLabApi' ],
 #    )
 
-build_vtl_api()
-stop
+#build_vtl_api()
+#stop
 
 if sys.platform == 'win32':
     runtime_library_dirs = None
@@ -111,14 +111,15 @@ vtl_api_extension = Extension(
     sources = [
         'vocaltractlab_cython/VocalTractLabApi.pyx',
         ],
-    language="c++",
+    language="c",
     libraries=[ 'vocaltractlab_cython/VocalTractLabApi' ],
+    include_dirs=[ np.get_include() ],
     runtime_library_dirs=runtime_library_dirs,
     #extra_compile_args=['-std=c++11'],
 )
 
 #EXT_MODULES = cythonize( 'vocaltractlab_cython/VocalTractLabApi.pyx' )
-EXT_MODULES = cythonize( vtl_api_extension, language="c++" )
+EXT_MODULES = cythonize( vtl_api_extension )
 
 setup_args = dict(
     #name='vocaltractlab_cython',

@@ -1,4 +1,4 @@
-# distutils: language=c++
+#test
 
 
 
@@ -9,6 +9,7 @@ import atexit
 import logging as log
 import warnings
 import numpy as np
+cimport numpy as np
 
 #from .cVocalTractLabApi cimport vtlCalcTongueRootAutomatically
 
@@ -27,20 +28,20 @@ from .cVocalTractLabApi cimport vtlFastTractToTube
 from .cVocalTractLabApi cimport vtlGetDefaultTransferFunctionOptions
 from .cVocalTractLabApi cimport vtlGetTransferFunction
 from .cVocalTractLabApi cimport vtlInputTractToLimitedTract
-from .cVocalTractLabApi cimport vtlSynthesisReset
-from .cVocalTractLabApi cimport vtlSynthesisAddTube
-from .cVocalTractLabApi cimport vtlSynthesisAddTract
+#from .cVocalTractLabApi cimport vtlSynthesisReset
+#from .cVocalTractLabApi cimport vtlSynthesisAddTube
+#from .cVocalTractLabApi cimport vtlSynthesisAddTract
 from .cVocalTractLabApi cimport vtlSynthBlock
-from .cVocalTractLabApi cimport vtlApiTest
+#from .cVocalTractLabApi cimport vtlApiTest
 from .cVocalTractLabApi cimport vtlSegmentSequenceToGesturalScore
 from .cVocalTractLabApi cimport vtlGesturalScoreToAudio
 from .cVocalTractLabApi cimport vtlGesturalScoreToTractSequence
 from .cVocalTractLabApi cimport vtlGetGesturalScoreDuration
 from .cVocalTractLabApi cimport vtlTractSequenceToAudio
-from .cVocalTractLabApi cimport vtlGesturalScoreToEma
-from .cVocalTractLabApi cimport vtlGesturalScoreToEmaAndMesh
-from .cVocalTractLabApi cimport vtlTractSequenceToEmaAndMesh
-from .cVocalTractLabApi cimport vtlSaveSpeaker
+#from .cVocalTractLabApi cimport vtlGesturalScoreToEma
+#from .cVocalTractLabApi cimport vtlGesturalScoreToEmaAndMesh
+#from .cVocalTractLabApi cimport vtlTractSequenceToEmaAndMesh
+#from .cVocalTractLabApi cimport vtlSaveSpeaker
 
 from .exceptions import VtlApiError
 from .exceptions import get_api_exception
@@ -72,7 +73,7 @@ def _close():
 	return
 
 def calculate_tongueroot_automatically( automatic_calculation: bool ):
-	cdef bool automaticCalculation = automatic_calculation
+	cdef bint automaticCalculation = automatic_calculation
 	value = vtlCalcTongueRootAutomatically( automaticCalculation )
 	if value != 0:
 		raise VtlApiError(
@@ -119,7 +120,7 @@ def gestural_score_to_audio(
 		duration[ 'n_audio_samples' ],
 		dtype='float64',
 		)
-	cdef bool cEnableConsoleOutput = verbose_api
+	cdef bint cEnableConsoleOutput = verbose_api
 	cdef int cNumS = 0
 	value = vtlGesturalScoreToAudio(
 		cGesFileName,
@@ -245,8 +246,10 @@ def get_param_info( params ):
 	cdef np.ndarray[ np.float64_t, ndim=1 ] cParamStandard = np.empty( constants[key], dtype='float64' )
 	if params == 'tract':
 		vtlGetParamInfo = vtlGetTractParamInfo
+		function_name = 'vtlGetTractParamInfo'
 	elif params == 'glottis':
 		vtlGetParamInfo = vtlGetGlottisParamInfo
+		function_name = 'vtlGetGlottisParamInfo'
 	value = vtlGetParamInfo(
 			cNames,
 			cDescriptions,
@@ -258,7 +261,7 @@ def get_param_info( params ):
 	if value != 0:
 		raise VtlApiError(
 			get_api_exception(
-				function_name = vtlGetParamInfo.__name__,
+				function_name = function_name,
 				return_value = value,
 				)
 			)
@@ -317,9 +320,11 @@ def get_shape(
 	if params == 'tract':
 		key = 'n_tract_params'
 		vtlGetParams = vtlGetTractParams
+		function_name = 'vtlGetTractParams'
 	elif params == 'glottis':
 		key = 'n_glottis_params'
 		vtlGetParams = vtlGetGlottisParams
+		function_name = 'vtlGetGlottisParams'
 	vtl_constants = get_constants()
 	cShapeName = shape_name.encode()
 	cdef np.ndarray[ np.float64_t, ndim=1 ] cParams = np.empty(
@@ -333,7 +338,7 @@ def get_shape(
 	if value != 0:
 		raise VtlApiError(
 			get_api_exception(
-				function_name = vtlGetParams.__name__,
+				function_name = function_name,
 				return_value = value,
 				)
 			)
@@ -370,7 +375,7 @@ def segment_sequence_to_gestural_score(
 	
 	cSegFileName = seg_file_path.encode()
 	cGesFileName = ges_file_path.encode()
-	cdef bool cEnableConsoleOutput = verbose_api
+	cdef bint cEnableConsoleOutput = verbose_api
 	value = vtlSegmentSequenceToGesturalScore(
 		cSegFileName,
 		cGesFileName,
@@ -397,7 +402,7 @@ def _synth_block(
 		n_frames * state_samples,
 		dtype='float64',
 		)
-	cdef bool cEnableConsoleOutput = verbose_api
+	cdef bint cEnableConsoleOutput = verbose_api
 	value = vtlSynthBlock(
 		&cTractParams[0],
 		&cGlottisParams[0],
@@ -458,13 +463,13 @@ def tract_sequence_to_audio(
 	#	audio_file_path = ''
 	cTractSequenceFileName = tract_file_path.encode()
 	cWavFileName = audio_file_path.encode()
-	cdef int cAudio = NULL
-	cdef int cNumS = NULL
+	cAudio = NULL
+	cNumS = NULL
 	value = vtlTractSequenceToAudio(
 		cTractSequenceFileName,
 		cWavFileName,
-		&cAudio,
-		&cNumS,
+		cAudio,
+		cNumS,
 		)
 	if value != 0:
 		raise ValueError('VTL API function vtlTractSequenceToAudio returned the Errorcode: {}  (See API doc for info.) \
@@ -513,12 +518,7 @@ def tract_state_to_svg(
 	os.makedirs( os.path.dirname( svg_path ), exist_ok=True )
 	
 	vtl_constants = get_constants()
-	cdef np.ndarray[np.float64_t, ndim = 1] tractParams = np.zeros(
-		vtl_constants['n_tract_params'],
-		dtype = 'float64'
-		)
-
-	cTractParams = tract_state.ravel()
+	cdef np.ndarray[np.float64_t, ndim = 1] cTractParams = tract_state.ravel()
 	cFileName = svg_path.encode()
 	value = vtlExportTractSvg(
 		&cTractParams[0],
@@ -557,7 +557,7 @@ def tract_state_to_transfer_function(
 	magnitude_spectrum = None
 	phase_spectrum = None
 	cdef int cNumSpectrumSamples = n_spectrum_samples
-	cdef int cOpts = NULL
+	cOpts = NULL
 	cdef np.ndarray[ np.float64_t, ndim=1 ] cTractParams = tract_state.ravel()
 	cdef np.ndarray[ np.float64_t, ndim=1 ] cMagnitude = np.zeros(
 		n_spectrum_samples,
@@ -628,8 +628,10 @@ def tract_state_to_tube_state(
 	cdef double cVelumOpening_cm2 = 0.0
 	if fast_calculation:
 		vtlCalcTube = vtlFastTractToTube
+		function_name = 'vtlFastTractToTube'
 	else:
 		vtlCalcTube = vtlTractToTube
+		function_name = 'vtlTractToTube'
 		
 	value = vtlCalcTube(
 		&cTractParams[0],
@@ -643,7 +645,7 @@ def tract_state_to_tube_state(
 	if value != 0:
 		raise VtlApiError(
 			get_api_exception(
-				function_name = vtlCalcTube.__name__,
+				function_name = function_name,
 				return_value = value,
 				)
 			)
@@ -719,7 +721,7 @@ atexit.register( _close )
 _initialize(
 	os.path.join(
 		os.path.dirname(__file__),
-		'speaker',
+		'resources',
 		'JD3.speaker'
 		)
 	)
