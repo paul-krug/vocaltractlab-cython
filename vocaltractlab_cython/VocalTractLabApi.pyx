@@ -390,7 +390,7 @@ def segment_sequence_to_gestural_score(
 def _synth_block(
 		tract_parameters: np.ndarray,
 		glottis_parameters: np.ndarray,
-		state_samples: int = None,
+		state_samples: int,
 		verbose_api: bool = False,
 		):
 	n_frames = tract_parameters.shape[0]
@@ -442,6 +442,9 @@ def synth_block(
 	# Check if the number of glottis parameters is correct
 	if glottis_parameters.shape[1] != vtl_constants[ 'n_glottis_params' ]:
 		raise ValueError( 'Number of columns in glottis parameters must be equal to the number of glottis parameters.' )
+
+	if state_samples is None:
+		state_samples = vtl_constants[ 'n_samples_per_state' ]
 
 	audio = _synth_block(
 		tract_parameters,
