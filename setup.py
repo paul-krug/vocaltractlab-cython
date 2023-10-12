@@ -127,15 +127,19 @@ setup_args = dict(
     description = 'Cython wrapper for VocalTractLabApi',
     ext_modules = EXT_MODULES,
     packages = [ 'vocaltractlab_cython' ],# 'vocaltractlab_cython.resources' ],
+
     #package_dir = dict( vocaltractlab_cython = 'vocaltractlab_cython' ),
 
     package_data = dict(
         vocaltractlab_cython = [
-            os.path.join( VTL_CYTHON_PATH, '/*' ),
+            #os.path.join( BACKEND_PATH, '/*' )
+            #os.path.join( VTL_CYTHON_PATH, '/*' ),
             #os.path.join( VTL_CYTHON_PATH, 'resources/*' ),
             ],
         ),
-    #include_package_data = True,
+    include_package_data = True,
+    use_scm_version = True,
+    setup_requires = [ 'setuptools_scm' ],
 )
 
 setup(**setup_args)
