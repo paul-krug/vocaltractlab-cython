@@ -1,0 +1,2 @@
+recursive-include vocaltractlab_cython *.pyx *.pxd
+recursive-include VocalTractLabBackend-dev *
