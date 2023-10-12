@@ -129,15 +129,21 @@ setup_args = dict(
     packages = [ 'vocaltractlab_cython' ],# 'vocaltractlab_cython.resources' ],
 
     #package_dir = dict( vocaltractlab_cython = 'vocaltractlab_cython' ),
+    #data_files = [ os.path.join( BACKEND_PATH, 'src/*' ) ],
 
-    package_data = dict(
-        vocaltractlab_cython = [
-            #os.path.join( BACKEND_PATH, '/*' )
-            #os.path.join( VTL_CYTHON_PATH, '/*' ),
-            #os.path.join( VTL_CYTHON_PATH, 'resources/*' ),
-            ],
-        ),
-    include_package_data = True,
+    #package_data = {
+    #    #'VocalTractLabBackend-dev': [
+    #    #    os.path.join( BACKEND_PATH, 'src/*' ),
+    #    #    #os.path.join( BACKEND_PATH, 'src', 'VocalTractLabBackend/*' ),
+    #    #    #os.path.join( VTL_CYTHON_PATH, '/*' ),
+    #    #    #os.path.join( VTL_CYTHON_PATH, 'resources/*' ),
+    #    #    ],
+    #    'vocaltractlab_cython': [
+    #        os.path.join( BACKEND_PATH, 'src/*' ),
+    #        os.path.join( VTL_CYTHON_PATH, 'resources/*' ),
+    #        ],
+    #},
+    #include_package_data = True,
     use_scm_version = True,
     setup_requires = [ 'setuptools_scm' ],
 )
