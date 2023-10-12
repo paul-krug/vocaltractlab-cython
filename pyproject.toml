@@ -5,6 +5,7 @@ requires = [
     'wheel',
     'numpy',
     'cython',
+    'cmake',
     ]
 build-backend = "setuptools.build_meta"
 

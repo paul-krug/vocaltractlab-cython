@@ -2,8 +2,9 @@ import os, sys
 #import logging
 import subprocess
 import shutil
-from setuptools import setup
+from setuptools import setup, find_packages
 from setuptools.extension import Extension
+from setuptools.command.build_py import build_py
 from Cython.Build import cythonize
 import numpy as np
 
@@ -44,6 +45,12 @@ cmd_build = [
     'VocalTractLabApi',
     ]
 
+class BuildVocalTractLabApi( build_py ):
+    def run( self ):
+        build_vtl_api()
+        build_py.run( self )
+        return
+    
 def build_vtl_api():
     print( 'Building VocalTractLab-Backend using cmake:' )
     os.makedirs( BUILD_PATH, exist_ok=True )
@@ -70,6 +77,9 @@ def build_vtl_api():
         VTL_CYTHON_PATH,
         )
     # Copy the resource folder from backend to vtl_cython
+    # For debugging purposes, ckeck if the folder already exists
+    if os.path.exists( os.path.join( VTL_CYTHON_PATH, 'resources' ) ):
+        shutil.rmtree( os.path.join( VTL_CYTHON_PATH, 'resources' ) )
     shutil.copytree(
         os.path.join(
             BACKEND_PATH,
@@ -82,7 +92,8 @@ def build_vtl_api():
         )
     
     # Delete the build folder
-    #shutil.rmtree( BUILD_PATH )
+    shutil.rmtree( BUILD_PATH )
+    shutil.rmtree( os.path.join( BACKEND_PATH, 'lib' ) )
     return
 
 
@@ -120,30 +131,35 @@ vtl_api_extension = Extension(
 
 #EXT_MODULES = cythonize( 'vocaltractlab_cython/VocalTractLabApi.pyx' )
 EXT_MODULES = cythonize( vtl_api_extension )
+cmdclass = dict( build_py = BuildVocalTractLabApi )
 
 setup_args = dict(
     name = 'vocaltractlab_cython',
     version = '0.0.1',
     description = 'Cython wrapper for VocalTractLabApi',
     ext_modules = EXT_MODULES,
-    packages = [ 'vocaltractlab_cython' ],# 'vocaltractlab_cython.resources' ],
+    cmdclass = cmdclass,
+    packages = find_packages(),#[ 'vocaltractlab_cython' ],# 'vocaltractlab_cython.resources' ],
 
-    #package_dir = dict( vocaltractlab_cython = 'vocaltractlab_cython' ),
+    package_dir = dict( vocaltractlab_cython = 'vocaltractlab_cython' ),
     #data_files = [ os.path.join( BACKEND_PATH, 'src/*' ) ],
 
-    #package_data = {
-    #    #'VocalTractLabBackend-dev': [
-    #    #    os.path.join( BACKEND_PATH, 'src/*' ),
-    #    #    #os.path.join( BACKEND_PATH, 'src', 'VocalTractLabBackend/*' ),
-    #    #    #os.path.join( VTL_CYTHON_PATH, '/*' ),
-    #    #    #os.path.join( VTL_CYTHON_PATH, 'resources/*' ),
-    #    #    ],
-    #    'vocaltractlab_cython': [
-    #        os.path.join( BACKEND_PATH, 'src/*' ),
-    #        os.path.join( VTL_CYTHON_PATH, 'resources/*' ),
-    #        ],
-    #},
-    #include_package_data = True,
+    package_data = {
+        #'VocalTractLabBackend-dev': [
+        #    os.path.join( BACKEND_PATH, 'src/*' ),
+        #    #os.path.join( BACKEND_PATH, 'src', 'VocalTractLabBackend/*' ),
+        #    #os.path.join( VTL_CYTHON_PATH, '/*' ),
+        #    #os.path.join( VTL_CYTHON_PATH, 'resources/*' ),
+        #    ],
+        'vocaltractlab_cython': [
+            #os.path.join( VTL_CYTHON_PATH ),
+            os.path.join( VTL_CYTHON_PATH, '*.h' ),
+            os.path.join( VTL_CYTHON_PATH, '*.dll' ),
+            os.path.join( VTL_CYTHON_PATH, '*.so' ),
+            os.path.join( VTL_CYTHON_PATH, 'resources/*' ),
+            ],
+    },
+    include_package_data = True,
     use_scm_version = True,
     setup_requires = [ 'setuptools_scm' ],
 )
