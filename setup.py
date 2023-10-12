@@ -122,10 +122,20 @@ vtl_api_extension = Extension(
 EXT_MODULES = cythonize( vtl_api_extension )
 
 setup_args = dict(
-    #name='vocaltractlab_cython',
-    #version='0.0.0',
-    #description='Cython wrapper for VocalTractLabApi',
-    ext_modules=EXT_MODULES,
+    name = 'vocaltractlab_cython',
+    version = '0.0.1',
+    description = 'Cython wrapper for VocalTractLabApi',
+    ext_modules = EXT_MODULES,
+    packages = [ 'vocaltractlab_cython' ],# 'vocaltractlab_cython.resources' ],
+    #package_dir = dict( vocaltractlab_cython = 'vocaltractlab_cython' ),
+
+    package_data = dict(
+        vocaltractlab_cython = [
+            os.path.join( VTL_CYTHON_PATH, '/*' ),
+            #os.path.join( VTL_CYTHON_PATH, 'resources/*' ),
+            ],
+        ),
+    #include_package_data = True,
 )
 
 setup(**setup_args)
