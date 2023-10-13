@@ -21,6 +21,13 @@ if sys.platform == 'win32':
         'Release',
         'VocalTractLabApi.dll',
         )
+elif sys.platform == 'darwin':
+    LIB_PATH = os.path.join(
+        BACKEND_PATH,
+        'lib',
+        'Release',
+        'libVocalTractLabApi.dylib',
+        )
 else:
     LIB_PATH = os.path.join(
         BACKEND_PATH,
@@ -153,10 +160,11 @@ setup_args = dict(
         #    ],
         'vocaltractlab_cython': [
             #os.path.join( VTL_CYTHON_PATH ),
-            os.path.join( VTL_CYTHON_PATH, '*.h' ),
-            os.path.join( VTL_CYTHON_PATH, '*.dll' ),
-            os.path.join( VTL_CYTHON_PATH, '*.so' ),
-            os.path.join( VTL_CYTHON_PATH, 'resources/*' ),
+            os.path.join( VTL_CYTHON_PATH, '*.h' ), # Header files
+            os.path.join( VTL_CYTHON_PATH, '*.dll' ), # Dynamic library, Windows
+            os.path.join( VTL_CYTHON_PATH, '*.dylib' ), # Dynamic library, Mac
+            os.path.join( VTL_CYTHON_PATH, '*.so' ), # Dynamic library, Linux
+            os.path.join( VTL_CYTHON_PATH, 'resources/*' ), # Speaker files
             ],
     },
     include_package_data = True,
