@@ -11,7 +11,7 @@ import warnings
 import numpy as np
 cimport numpy as np
 
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional
 
 #from .cVocalTractLabApi cimport vtlCalcTongueRootAutomatically
 
@@ -158,10 +158,13 @@ def calculate_tongueroot_automatically( automatic_calculation: bool ):
     Parameters:
     ----------
     automatic_calculation : bool
-        If True, automatic calculation of Tongue Root parameters is enabled. If False, it is disabled.
+        Specify whether to enable (True) or disable (False) automatic calculation of Tongue Root parameters.
 
     Raises:
     -------
+    TypeError
+        If the `automatic_calculation` argument is not a boolean.
+
     VtlApiError
         If the configuration process fails, a VtlApiError is raised with details.
 
@@ -171,10 +174,8 @@ def calculate_tongueroot_automatically( automatic_calculation: bool ):
 
     Notes:
     ------
-    - Set `automatic_calculation` to True if you want the VTL API to automatically calculate
-      the Tongue Root parameters.
-    - Set `automatic_calculation` to False if you want to manually specify the Tongue Root parameters.
-    - Configuring this option affects the subsequent behavior of the VTL API.
+    - Use this function to configure the VTL API's behavior regarding the automatic calculation of Tongue Root parameters.
+    - Set `automatic_calculation` to True to enable automatic calculation or False to disable it.
 
     Example:
     --------
@@ -182,12 +183,23 @@ def calculate_tongueroot_automatically( automatic_calculation: bool ):
     >>> try:
     >>>     calculate_tongueroot_automatically(True)  # Enable automatic calculation
     >>>     print("Automatic Tongue Root calculation enabled.")
+    >>> except TypeError as te:
+    >>>     print(f"Invalid argument: {te}")
     >>> except VtlApiError as e:
     >>>     print(f"Configuration failed: {e}")
 
     """
+    if not isinstance( automatic_calculation, bool ):
+        raise TypeError(
+            f"""
+            Argument automatic_calculation must be a boolean,
+            not {type( automatic_calculation )}.
+            """
+            )
+
     cdef bint automaticCalculation = automatic_calculation
     value = vtlCalcTongueRootAutomatically( automaticCalculation )
+
     if value != 0:
         raise VtlApiError(
             get_api_exception(
@@ -195,11 +207,17 @@ def calculate_tongueroot_automatically( automatic_calculation: bool ):
                 return_value = value,
                 )
             )
-    warnings.warn( f'Automatic calculation of the Tongue Root parameters was set to {automatic_calculation}.' )
+
+    warnings.warn(
+        f'Automatic calculation of the Tongue Root parameters was set to {automatic_calculation}.'
+        )
     return
 
-def check_file_path( file_path: str ):
-    if not os.path.isfile( file_path ):
+def check_file_path(
+    file_path: str,
+    must_exist: bool = True,
+    ):
+    if not os.path.isfile( file_path ) and must_exist:
         raise FileNotFoundError( f'File not found: {file_path}' )
     # Check if path contains special characters
     if not file_path.isascii():
@@ -216,25 +234,71 @@ def format_cstring( cString ):
     x = x.split('\t')
     return x
 
-def gestural_score_to_audio(
-        ges_file_path: str,
-        audio_file_path: str = None,
+def gesture_file_to_audio(
+        gesture_file: str,
+        audio_file: Optional[ str ] = None,
         verbose_api: bool = False,
-         ):
-    check_file_path( ges_file_path )
+        ) -> np.ndarray:
+    """
+    Generate audio from a gestural score file.
 
-    if audio_file_path is None:
-        audio_file_path = ''
-    cGesFileName = ges_file_path.encode()
-    cWavFileName = audio_file_path.encode()
+    This function generates audio from a gestural score file using the VocalTractLab (VTL) API.
+    The generated audio can be saved as a WAV file.
 
-    duration = get_gestural_score_duration( ges_file_path )
+    Parameters:
+    ----------
+    gesture_file : str
+        The path to the gestural score file.
+    audio_file : str, optional
+        The path to save the generated audio as a WAV file. If not provided, the audio is not saved.
+    verbose_api : bool, optional
+        Enable console output from the VTL API (True) or disable it (False, default).
+
+    Returns:
+    --------
+    np.ndarray
+        A NumPy array containing the generated audio samples.
+
+    Raises:
+    -------
+    VtlApiError
+        If the audio generation process fails, a VtlApiError is raised with details.
+
+    Notes:
+    ------
+    - Use this function to generate audio from a gestural score file.
+    - The generated audio can be saved as a WAV file at the specified audio_file path.
+    - The audio will be an array of audio samples.
+
+    Example:
+    --------
+    >>> from vocaltractlab_cython import gesture_file_to_audio
+    >>> try:
+    >>>     gesture_file = "gestural_score.txt"
+    >>>     audio_file = "output_audio.wav"
+    >>>     audio = gesture_file_to_audio(gesture_file, audio_file, verbose_api=True)
+    >>>     print(f"Audio generated and saved as {audio_file}")
+    >>> except VtlApiError as e:
+    >>>     print(f"Audio generation failed: {e}")
+
+    """
+    check_file_path( gesture_file )
+
+    if audio_file is None:
+        audio_file = ''
+    check_file_path( audio_file, must_exist=False )
+
+    cGesFileName = gesture_file.encode()
+    cWavFileName = audio_file.encode()
+
+    duration = get_gestural_score_duration( gesture_file )
     cdef np.ndarray[ np.float64_t, ndim=1 ] cAudio = np.zeros(
         duration[ 'n_audio_samples' ],
         dtype='float64',
         )
     cdef bint cEnableConsoleOutput = verbose_api
     cdef int cNumS = 0
+
     value = vtlGesturalScoreToAudio(
         cGesFileName,
         cWavFileName,
@@ -242,35 +306,92 @@ def gestural_score_to_audio(
         &cNumS,
         cEnableConsoleOutput,
         )
-    #time_synth_end = time.time()
-    #print( 'elapsed synthesis time {}'.format( time_synth_end-time_synth_start ) )
+
     if value != 0:
-        raise ValueError('VTL API function vtlGesturalScoreToAudio returned the Errorcode: {}  (See API doc for info.) \
-            while processing gestural score file (input): {}, audio file (output): {}'.format(value, ges_file_path, audio_file_path) )
+        raise VtlApiError(
+            get_api_exception(
+                function_name = 'vtlGesturalScoreToAudio',
+                return_value = value,
+                function_args = dict(
+                    gesture_file = gesture_file,
+                    audio_file = audio_file,
+                )
+            )
+        )
 
     audio = np.array( cAudio )
 
-    log.info( 'Audio generated from gestural score file: {}'.format( ges_file_path ) )
+    log.info(
+        f'Audio file: {audio_file} generated from gesture file: {gesture_file}'
+        )
     return audio
 
-def gestural_score_to_tract_sequence(
-        ges_file_path: str,
-        tract_file_path: str,
+def gesture_file_to_motor_file(
+        gesture_file: str,
+        motor_file: str,
         ):
-    check_file_path( ges_file_path )
-    # Make the directory of the tract file if it does not exist
-    os.makedirs( os.path.dirname( tract_file_path ), exist_ok=True )
+    """
+    Generate a motor (tract sequence) file from a gestural score file.
 
-    cGesFileName = ges_file_path.encode()
-    cTractSequenceFileName = tract_file_path.encode()
+    This function generates a motor (tract sequence) file from a gestural score file using the VocalTractLab (VTL) API.
+
+    Parameters:
+    ----------
+    gesture_file : str
+        The path to the gestural score file.
+    motor_file : str
+        The path to save the generated motor (tract sequence) file.
+
+    Raises:
+    -------
+    VtlApiError
+        If the motor file generation process fails, a VtlApiError is raised with details.
+
+    Notes:
+    ------
+    - Use this function to generate a motor file (tract sequence) from a gestural score file.
+    - The motor file will be created at the specified motor_file path.
+
+    Example:
+    --------
+    >>> from vocaltractlab_cython import gesture_file_to_motor_file
+    >>> try:
+    >>>     gesture_file = "gestural_score.txt"
+    >>>     motor_file = "output_motor.tract"
+    >>>     gesture_file_to_motor_file(gesture_file, motor_file)
+    >>>     print(f"Motor file generated and saved as {motor_file}")
+    >>> except VtlApiError as e:
+    >>>     print(f"Motor file generation failed: {e}")
+
+    """
+    check_file_path( gesture_file )
+    # Make the directory of the tract file if it does not exist
+    check_file_path( motor_file, must_exist=False )
+    os.makedirs( os.path.dirname( motor_file ), exist_ok=True )
+
+    cGesFileName = gesture_file.encode()
+    cTractSequenceFileName = motor_file.encode()
+
     value = vtlGesturalScoreToTractSequence(
         cGesFileName,
         cTractSequenceFileName,
         )
+
     if value != 0:
-        raise ValueError('VTL API function vtlGesturalScoreToTractSequence returned the Errorcode: {}  (See API doc for info.) \
-            while processing gestural score file (input): {}, tract sequence file (output): {}'.format(value, ges_file_path, tract_file_path) )
-    log.info( f'Created tract sequence file {tract_file_path} from gestural score file: {ges_file_path}' )
+        raise VtlApiError(
+            get_api_exception(
+                function_name = 'vtlGesturalScoreToTractSequence',
+                return_value = value,
+                function_args = dict(
+                    gesture_file = gesture_file,
+                    motor_file = motor_file,
+                )
+            )
+        )
+
+    log.info(
+        f'Generated motor file {motor_file} from gesture file: {gesture_file}'
+        )
     return
 
 def get_constants():
@@ -355,18 +476,64 @@ def get_constants():
                 )
     return constants
 
-def get_gestural_score_duration(
-        ges_file_path: str,
-        return_samples: bool = True,
-        ):
-    cGesFileName = ges_file_path.encode()
+def get_gesture_duration(
+        gesture_file: str,
+        ) -> Dict[str, Union[int, float]]:
+    """
+    Get the duration information of a gestural score file.
+
+    This function retrieves information about the duration of a gestural
+    score file, including the number of audio samples,
+    the number of gesture samples, and the duration in seconds.
+
+    Parameters:
+    ----------
+    gesture_file : str
+        The path to the gestural score file.
+
+    Returns:
+    --------
+    dict
+        A dictionary containing the following duration information:
+        - 'n_audio_samples': int - Number of audio samples.
+        - 'n_gesture_samples': int - Number of gesture samples.
+        - 'duration': float - Duration in seconds.
+
+    Raises:
+    -------
+    VtlApiError
+        If the retrieval process fails, a VtlApiError is raised with details.
+
+    Notes:
+    ------
+    - Use this function to obtain information about the duration of a gestural score file.
+    - The duration is calculated based on the number of audio samples and the audio sampling rate.
+
+    Example:
+    --------
+    >>> from vocaltractlab_cython import get_gesture_duration
+    >>> try:
+    >>>     gesture_file = "gestural_score.txt"
+    >>>     duration_info = get_gesture_duration(gesture_file)
+    >>>     print("Duration Information:")
+    >>>     for key, value in duration_info.items():
+    >>>         print(f"{key}: {value}")
+    >>> except VtlApiError as e:
+    >>>     print(f"Retrieval failed: {e}")
+
+    """
+    check_file_path( gesture_file )
+
+    cGesFileName = gesture_file.encode()
     cdef int cNumAudioSamples = -1
     cdef int cNumGestureSamples = -1
+
     value = vtlGetGesturalScoreDuration(
         cGesFileName,
         &cNumAudioSamples,
         &cNumGestureSamples,
         )
+
     if value != 0:
         raise VtlApiError(
             get_api_exception(
@@ -374,15 +541,19 @@ def get_gestural_score_duration(
                 return_value = value,
                 )
             )
-    results = dict(
-        n_audio_samples = int( cNumAudioSamples ),
-        n_gesture_samples = int( cNumGestureSamples ),
+
+    vtl_constants = get_constants()
+    n_audio_samples = int( cNumAudioSamples )
+    n_gesture_samples = int( cNumGestureSamples )
+    duration = n_audio_samples / vtl_constants[ 'sr_audio' ]
+    
+    result = dict(
+        n_audio_samples = n_audio_samples,
+        n_gesture_samples = n_gesture_samples,
+        duration = duration,
     )
-    #if return_samples: # returning number of audio samples
-    #    return n_samples
-    #else: # returning time in seconds
-    #    return n_samples / self.params.samplerate_audio
-    return results
+
+    return result
 
 def get_param_info( params: str ) -> List[Dict[str, Union[str, float]]]:
     """
@@ -611,27 +782,77 @@ def get_version() -> str:
     log.info( f'Compile date of the library: {version}' )
     return version
 
-def segment_sequence_to_gestural_score(
-        seg_file_path: str,
-        ges_file_path: str,
+def phoneme_file_to_gesture_file(
+        phoneme_file: str,
+        gesture_file: str,
         verbose_api: bool = False,
         ):
-    check_file_path( seg_file_path )
+    """
+    Generate a gestural score file from a phoneme sequence file.
+
+    This function generates a gestural score file from a phoneme sequence file using the VocalTractLab (VTL) API.
+
+    Parameters:
+    ----------
+    phoneme_file : str
+        The path to the phoneme sequence file.
+    gesture_file : str
+        The path to save the generated gestural score file.
+    verbose_api : bool, optional
+        Enable console output from the VTL API (True) or disable it (False, default).
+
+    Raises:
+    -------
+    VtlApiError
+        If the gestural score file generation process fails, a VtlApiError is raised with details.
+
+    Notes:
+    ------
+    - Use this function to generate a gestural score file from a phoneme sequence file.
+    - The generated gestural score file will be created at the specified gesture_file path.
+
+    Example:
+    --------
+    >>> from vocaltractlab_cython import phoneme_file_to_gesture_file
+    >>> try:
+    >>>     phoneme_file = "phoneme_sequence.txt"
+    >>>     gesture_file = "output_gestural_score.txt"
+    >>>     phoneme_file_to_gesture_file(phoneme_file, gesture_file, verbose_api=True)
+    >>>     print(f"Gestural score file generated and saved as {gesture_file}")
+    >>> except VtlApiError as e:
+    >>>     print(f"Gestural score file generation failed: {e}")
+
+    """
+    check_file_path( phoneme_file )
     # Make the directory of the gestural score file if it does not exist
-    os.makedirs( os.path.dirname( ges_file_path ), exist_ok=True )
+    check_file_path( gesture_file, must_exist=False )
+    os.makedirs( os.path.dirname( gesture_file ), exist_ok=True )
     
-    cSegFileName = seg_file_path.encode()
-    cGesFileName = ges_file_path.encode()
+    cSegFileName = phoneme_file.encode()
+    cGesFileName = gesture_file.encode()
     cdef bint cEnableConsoleOutput = verbose_api
+    
     value = vtlSegmentSequenceToGesturalScore(
         cSegFileName,
         cGesFileName,
         cEnableConsoleOutput,
         )
+
     if value != 0:
-        raise ValueError('VTL API function vtlSegmentSequenceToGesturalScore returned the Errorcode: {}  (See API doc for info.) \
-            while processing segment sequence file (input): {}, gestural score file (output): {}'.format(value, seg_file_path, ges_file_path) )
-    log.info( f'Created gestural score from segment sequence file: {seg_file_path}' )
+        raise VtlApiError(
+            get_api_exception(
+                function_name = 'vtlSegmentSequenceToGesturalScore',
+                return_value = value,
+                function_args = dict(
+                    phoneme_file = phoneme_file,
+                    gesture_file = gesture_file,
+                )
+            )
+        )
+    
+    log.info(
+        f'Created gesture file from phoneme sequence file: {phoneme_file}'
+        )
     return
 
 def _synth_block(
@@ -639,7 +860,53 @@ def _synth_block(
         glottis_parameters: np.ndarray,
         state_samples: int,
         verbose_api: bool = False,
-        ):
+        ) -> np.ndarray:
+    """
+    Synthesize audio from tract and glottis parameters.
+
+    This function synthesizes audio based on the given tract and glottis parameters using the VocalTractLab (VTL) API.
+
+    Parameters:
+    ----------
+    tract_parameters : np.ndarray
+        An array containing tract parameters for each frame.
+    glottis_parameters : np.ndarray
+        An array containing glottis parameters for each frame.
+    state_samples : int
+        The number of audio samples per vocal tract state (frame).
+    verbose_api : bool, optional
+        Enable console output from the VTL API (True) or disable it (False, default).
+
+    Returns:
+    --------
+    np.ndarray
+        An array containing the synthesized audio samples.
+
+    Raises:
+    -------
+    VtlApiError
+        If the audio synthesis process fails, a VtlApiError is raised with details.
+
+    Notes:
+    ------
+    - Use this function to synthesize audio based on tract and glottis parameters.
+    - The length of the returned audio array is determined by the number of frames and state_samples.
+
+    Example:
+    --------
+    >>> from vocaltractlab_cython import _synth_block
+    >>> import numpy as np
+    >>> try:
+    >>>     # Generate tract and glottis parameter arrays
+    >>>     tract_params = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
+    >>>     glottis_params = np.array([[0.7, 0.8, 0.9], [1.0, 1.1, 1.2]])
+    >>>     state_samples = 48000  # Example value
+    >>>     audio = _synth_block(tract_params, glottis_params, state_samples, verbose_api=True)
+    >>>     print(f"Synthesized audio with {len(audio)} samples.")
+    >>> except VtlApiError as e:
+    >>>     print(f"Audio synthesis failed: {e}")
+
+    """
     n_frames = tract_parameters.shape[0]
     cdef int cNumFrames = n_frames
     cdef np.ndarray[ np.float64_t, ndim=1 ] cTractParams = tract_parameters.ravel()
@@ -673,22 +940,90 @@ def synth_block(
         glottis_parameters: np.ndarray,
         state_samples: int = None,
         verbose_api: bool = False,
-        ):
+        ) -> np.ndarray:
+    """
+    Synthesize audio from tract and glottis parameters.
+
+    This function synthesizes audio based on the given tract and glottis parameters using the VocalTractLab (VTL) API.
+    It automatically checks and handles parameter shapes and provides an option to specify the number of audio samples
+    per vocal tract state (frame).
+
+    Parameters:
+    ----------
+    tract_parameters : np.ndarray
+        An array containing tract parameters for each frame.
+    glottis_parameters : np.ndarray
+        An array containing glottis parameters for each frame.
+    state_samples : int, optional
+        The number of audio samples per vocal tract state (frame). If not specified, it will be determined by the VTL API.
+    verbose_api : bool, optional
+        Enable console output from the VTL API (True) or disable it (False, default).
+
+    Returns:
+    --------
+    np.ndarray
+        An array containing the synthesized audio samples.
+
+    Raises:
+    -------
+    ValueError
+        If the input parameter arrays have incorrect shapes or dimensions.
+    VtlApiError
+        If the audio synthesis process fails, a VtlApiError is raised with details.
+
+    Notes:
+    ------
+    - Use this function to synthesize audio based on tract and glottis parameters.
+    - The function automatically checks the input parameter shapes and dimensions.
+    - You can specify the number of audio samples per vocal tract state, or it will be determined by the VTL API.
+
+    Example:
+    --------
+    >>> from vocaltractlab_cython import synth_block
+    >>> import numpy as np
+    >>> try:
+    >>>     # Generate tract and glottis parameter arrays
+    >>>     tract_params = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
+    >>>     glottis_params = np.array([[0.7, 0.8, 0.9], [1.0, 1.1, 1.2]])
+    >>>     audio = synth_block(tract_params, glottis_params, state_samples=48000, verbose_api=True)
+    >>>     print(f"Synthesized audio with {len(audio)} samples.")
+    >>> except ValueError as ve:
+    >>>     print(f"Input parameters have incorrect shapes: {ve}")
+    >>> except VtlApiError as e:
+    >>>     print(f"Audio synthesis failed: {e}")
+
+    """
     vtl_constants = get_constants()
+
     # Input arrays are 2D
     if tract_parameters.ndim != 2:
         raise ValueError( 'Tract parameters must be a 2D array.' )
     if glottis_parameters.ndim != 2:
         raise ValueError( 'Glottis parameters must be a 2D array.' )
+
     # Check if the number of time steps is equal
     if tract_parameters.shape[0] != glottis_parameters.shape[0]:
-        raise ValueError( 'Number of rows in tract and glottis parameters must be equal.' )
+        raise ValueError(
+            'Number of rows in tract and glottis parameters must be equal.'
+            )
+
     # Check if the number of tract parameters is correct
     if tract_parameters.shape[1] != vtl_constants[ 'n_tract_params' ]:
-        raise ValueError( 'Number of columns in tract parameters must be equal to the number of tract parameters.' )
+        raise ValueError(
+            f"""
+            Number of columns in tract parameters must be equal to the
+            number of VTL tract parameters ({vtl_constants[ 'n_tract_params' ]}).
+            """
+            )
+
     # Check if the number of glottis parameters is correct
     if glottis_parameters.shape[1] != vtl_constants[ 'n_glottis_params' ]:
-        raise ValueError( 'Number of columns in glottis parameters must be equal to the number of glottis parameters.' )
+        raise ValueError(
+            f"""
+            Number of columns in glottis parameters must be equal to the
+            number of VTL glottis parameters ({vtl_constants[ 'n_glottis_params' ]}).
+            """
+            )
 
     if state_samples is None:
         state_samples = vtl_constants[ 'n_samples_per_state' ]
@@ -699,53 +1034,172 @@ def synth_block(
         state_samples,
         verbose_api,
         )
+
     return audio
 
-def tract_sequence_to_audio(
-        tract_file_path: str,
-        audio_file_path: str,
+def motor_file_to_audio_file(
+        motor_file: str,
+        audio_file: str,
         ):
-    check_file_path( tract_file_path )
-    # Make the directory of the audio file if it does not exist
-    os.makedirs( os.path.dirname( audio_file_path ), exist_ok=True )
+    """
+    Convert a motor (tract) file to an audio file.
 
-    #if audio_file_path is None:
-    #    audio_file_path = ''
-    cTractSequenceFileName = tract_file_path.encode()
-    cWavFileName = audio_file_path.encode()
+    This function converts a motor (tract) file to an audio file using the VocalTractLab (VTL) API. The motor file
+    contains motor commands for the vocal tract, which are used to generate the corresponding audio.
+
+    Parameters:
+    ----------
+    motor_file : str
+        The path to the motor (tract) file to be converted.
+    audio_file : str
+        The path to the output audio file to be generated.
+
+    Raises:
+    -------
+    VtlApiError
+        If the conversion process fails, a VtlApiError is raised with details.
+
+    Notes:
+    ------
+    - Use this function to convert a motor file to an audio file.
+    - The motor file should contain motor commands for the vocal tract.
+    - The audio file will be generated based on the motor commands.
+
+    Example:
+    --------
+    >>> from vocaltractlab_cython import motor_file_to_audio_file
+    >>> try:
+    >>>     motor_file = 'motor_commands.ctr'
+    >>>     audio_file = 'output_audio.wav'
+    >>>     motor_file_to_audio_file(motor_file, audio_file)
+    >>>     print(f"Converted motor file '{motor_file}' to audio file '{audio_file}'.")
+    >>> except VtlApiError as e:
+    >>>     print(f"Conversion failed: {e}")
+
+    """
+    check_file_path( motor_file )
+
+    # Make the directory of the audio file if it does not exist
+    check_file_path( audio_file, must_exist=False )
+    os.makedirs( os.path.dirname( audio_file ), exist_ok=True )
+
+    cTractSequenceFileName = motor_file.encode()
+    cWavFileName = audio_file.encode()
     cAudio = NULL
     cNumS = NULL
+
     value = vtlTractSequenceToAudio(
         cTractSequenceFileName,
         cWavFileName,
         cAudio,
         cNumS,
         )
+    
     if value != 0:
-        raise ValueError('VTL API function vtlTractSequenceToAudio returned the Errorcode: {}  (See API doc for info.) \
-            while processing tract sequence file (input): {}, audio file (output): {}'.format(value, tract_file_path, audio_file_path) )
-    log.info( f'Audio generated from tract sequence file: {tract_file_path}' )
+        raise VtlApiError(
+            get_api_exception(
+                function_name = 'vtlTractSequenceToAudio',
+                return_value = value,
+                function_args = dict(
+                    motor_file = motor_file,
+                    audio_file = audio_file,
+                )
+            )
+        )
+
+    log.info( f'Audio generated from tract sequence file: {motor_file}' )
     return
 
-def tract_state_to_limited_tract_state( tract_state: np.ndarray ):
+def tract_state_to_limited_tract_state(
+        tract_state: np.ndarray
+        ) -> np.ndarray:
+    """
+    Convert a full tract state to a limited tract state.
+
+    This function converts a full vocal tract state to a limited vocal tract state using the VocalTractLab (VTL) API.
+    The limited tract state has the same length as the full state but may have limited parameter values.
+
+    Parameters:
+    ----------
+    tract_state : np.ndarray
+        An array representing the full vocal tract state.
+
+    Returns:
+    --------
+    np.ndarray
+        An array representing the limited vocal tract state.
+
+    Raises:
+    -------
+    ValueError
+        If the input tract state is not a 1D array or has an incorrect length.
+    VtlApiError
+        If the conversion process fails, a VtlApiError is raised with details.
+
+    Notes:
+    ------
+    - Use this function to convert a full vocal tract state to a limited vocal tract state.
+    - The limited state may have parameter values limited by the VTL API.
+
+    Warnings:
+    ---------
+    - Virtual target parameters will be limited to the respective non-virtual range.
+    - This may have a significant impact on the resulting vocal tract dynamics.
+
+    Example:
+    --------
+    >>> from vocaltractlab_cython import tract_state_to_limited_tract_state
+    >>> import numpy as np
+    >>> try:
+    >>>     full_state = np.array([0.1, 0.2, 0.3])
+    >>>     limited_state = tract_state_to_limited_tract_state(full_state)
+    >>>     print(f"Full tract state: {full_state}")
+    >>>     print(f"Limited tract state: {limited_state}")
+    >>> except ValueError as ve:
+    >>>     print(f"Invalid input tract state: {ve}")
+    >>> except VtlApiError as e:
+    >>>     print(f"Conversion failed: {e}")
+
+    """
     vtl_constants = get_constants()
+
+    # Check if the tract state is a 1D array
+    if tract_state.ndim != 1:
+        raise ValueError( 'Tract state must be a 1D array.' )
+
+    # Check if the tract state has the correct length
+    if tract_state.shape[0] != vtl_constants[ 'n_tract_params' ]:
+        raise ValueError(
+            f"""
+            Tract state has length {tract_state.shape[0]}, 
+            but should have length {vtl_constants[ "n_tract_params" ]}.
+            """
+            )
+
     cdef np.ndarray[ np.float64_t, ndim=1 ] cInTractParams = tract_state.ravel()
     cdef np.ndarray[ np.float64_t, ndim=1 ] cOutTractParams = np.zeros(
         vtl_constants[ 'n_tract_params' ],
         dtype='float64',
         )
+
     value = vtlInputTractToLimitedTract(
         &cInTractParams[0],
         &cOutTractParams[0],
         )
+
     if value != 0:
         raise VtlApiError(
             get_api_exception(
                 function_name = 'vtlInputTractToLimitedTract',
                 return_value = value,
+                function_args = dict(
+                    tract_state = tract_state,
                 )
             )
+        )
+
     limited_state = np.array( cOutTractParams )
+
     return limited_state
 
 def tract_state_to_svg(
@@ -795,9 +1249,11 @@ def tract_state_to_svg(
 
     """
     vtl_constants = get_constants()
+
     # Check if the tract state is a 1D array
     if tract_state.ndim != 1:
         raise ValueError( 'Tract state must be a 1D array.' )
+
     # Check if the tract state has the correct length
     if tract_state.shape[0] != vtl_constants[ 'n_tract_params' ]:
         raise ValueError(
@@ -806,46 +1262,108 @@ def tract_state_to_svg(
             but should have length {vtl_constants[ "n_tract_params" ]}.
             """
             )
+
     # Make the directory of the svg file if it does not exist
+    check_file_path( svg_path, must_exist=False )
     os.makedirs( os.path.dirname( svg_path ), exist_ok=True )
     
     vtl_constants = get_constants()
     cdef np.ndarray[np.float64_t, ndim = 1] cTractParams = tract_state.ravel()
     cFileName = svg_path.encode()
+
     value = vtlExportTractSvg(
         &cTractParams[0],
         cFileName,
         )
+
     if value != 0:
         raise VtlApiError(
             get_api_exception(
                 function_name = 'vtlExportTractSvg',
                 return_value = value,
+                function_args = dict(
+                    tract_state = tract_state,
+                    svg_path = svg_path,
                 )
             )
+        )
+
     return
 
-#def _supra_glottal_state_to_svg_str( args ):
-#    supra_glottal_state = args
-#    svgStr = ( ' ' * 10000 ).encode()
-#    constants = get_constants()
-#    cdef np.ndarray[np.float64_t, ndim = 1] tractParams = np.zeros(
-#        constants['n_tract_params'],
-#        dtype = 'float64',
-#        )
-#    tractParams = supra_glottal_state.ravel()
-#    vtlExportTractSvgToStr(
-#        &tractParams[0],
-#        svgStr,
-#        )
-#    return svgStr.decode()
-
 def tract_state_to_transfer_function(
-        tract_state,
+        tract_state: np.ndarray,
         n_spectrum_samples: int = 8192,
         save_magnitude_spectrum: bool = True,
         save_phase_spectrum: bool = True,
-        ):
+        ) -> Dict[ str, np.ndarray | int | None ]:
+    """
+    Compute the transfer function from a vocal tract state.
+
+    This function computes the transfer function, including the magnitude and phase spectra, from a given vocal tract
+    state using the VocalTractLab (VTL) API.
+
+    Parameters:
+    ----------
+    tract_state : np.ndarray
+        An array representing the vocal tract state.
+    n_spectrum_samples : int, optional
+        The number of spectrum samples to compute (default is 8192).
+    save_magnitude_spectrum : bool, optional
+        Set to True to save the magnitude spectrum (default is True).
+    save_phase_spectrum : bool, optional
+        Set to True to save the phase spectrum (default is True).
+
+    Returns:
+    --------
+    dict
+        A dictionary containing the following computed spectra and information:
+        - 'magnitude_spectrum': np.ndarray - Magnitude spectrum of the transfer function.
+        - 'phase_spectrum': np.ndarray - Phase spectrum of the transfer function.
+        - 'n_spectrum_samples': int - Number of spectrum samples.
+
+    Raises:
+    -------
+    ValueError
+        If the input tract state is not a 1D array or has an incorrect length.
+    VtlApiError
+        If the transfer function computation process fails, a VtlApiError is raised with details.
+
+    Notes:
+    ------
+    - Use this function to compute the transfer function from a vocal tract state.
+    - The computed transfer function includes both magnitude and phase spectra.
+
+    Example:
+    --------
+    >>> from vocaltractlab_cython import tract_state_to_transfer_function
+    >>> import numpy as np
+    >>> try:
+    >>>     vocal_tract_state = np.array([0.1, 0.2, 0.3])
+    >>>     transfer_function = tract_state_to_transfer_function(vocal_tract_state)
+    >>>     print("Computed Transfer Function:")
+    >>>     print(f"Magnitude Spectrum: {transfer_function['magnitude_spectrum']}")
+    >>>     print(f"Phase Spectrum: {transfer_function['phase_spectrum']}")
+    >>> except ValueError as ve:
+    >>>     print(f"Invalid input vocal tract state: {ve}")
+    >>> except VtlApiError as e:
+    >>>     print(f"Transfer function computation failed: {e}")
+
+    """
+    vtl_constants = get_constants()
+
+    # Check if the tract state is a 1D array
+    if tract_state.ndim != 1:
+        raise ValueError( 'Tract state must be a 1D array.' )
+
+    # Check if the tract state has the correct length
+    if tract_state.shape[0] != vtl_constants[ 'n_tract_params' ]:
+        raise ValueError(
+            f"""
+            Tract state has length {tract_state.shape[0]}, 
+            but should have length {vtl_constants[ "n_tract_params" ]}.
+            """
+            )
+
     magnitude_spectrum = None
     phase_spectrum = None
     cdef int cNumSpectrumSamples = n_spectrum_samples
@@ -859,6 +1377,7 @@ def tract_state_to_transfer_function(
         n_spectrum_samples,
         dtype='float64',
         )
+
     value = vtlGetTransferFunction(
         &cTractParams[0],
         cNumSpectrumSamples,
@@ -866,6 +1385,7 @@ def tract_state_to_transfer_function(
         &cMagnitude[0],
         &cPhase_rad[0],
         )
+
     if value != 0:
         raise VtlApiError(
             get_api_exception(
@@ -873,15 +1393,19 @@ def tract_state_to_transfer_function(
                 return_value = value,
                 )
             )
+
     if save_magnitude_spectrum:
         magnitude_spectrum = np.array( cMagnitude )
+
     if save_phase_spectrum:
         phase_spectrum = np.array( cPhase_rad )
+
     transfer_function = dict(
         magnitude_spectrum = magnitude_spectrum,
         phase_spectrum = phase_spectrum,
         n_spectrum_samples = n_spectrum_samples,
         )
+
     return transfer_function
 
 def tract_state_to_tube_state(
@@ -893,7 +1417,97 @@ def tract_state_to_tube_state(
         save_incisor_position: bool = True,
         save_tongue_tip_side_elevation: bool = True,
         save_velum_opening: bool = True,
-        ):
+        ) -> Dict[ str, np.ndarray | float | None ]:
+    """
+    Compute tube state information from a vocal tract state.
+
+    This function computes various tube state information from a given vocal tract state using the VocalTractLab (VTL) API.
+
+    Parameters:
+    ----------
+    tract_state : np.ndarray
+        An array representing the vocal tract state.
+    fast_calculation : bool, optional
+        Set to True to use a fast calculation method (default is False).
+    save_tube_length : bool, optional
+        Set to True to save tube length information (default is True).
+    save_tube_area : bool, optional
+        Set to True to save tube area information (default is True).
+    save_tube_articulator : bool, optional
+        Set to True to save tube articulator information (default is True).
+    save_incisor_position : bool, optional
+        Set to True to save incisor position information (default is True).
+    save_tongue_tip_side_elevation : bool, optional
+        Set to True to save tongue tip side elevation information (default is True).
+    save_velum_opening : bool, optional
+        Set to True to save velum opening information (default is True).
+
+    Returns:
+    --------
+    dict
+        A dictionary containing various tube state information:
+        - 'tube_length': np.ndarray - Tube length information.
+        - 'tube_area': np.ndarray - Tube area information.
+        - 'tube_articulator': np.ndarray - Tube articulator information.
+        - 'incisor_position': float - Incisor position.
+        - 'tongue_tip_side_elevation': float - Tongue tip side elevation.
+        - 'velum_opening': float - Velum opening.
+        Values may be None for the information that is not requested to be saved.
+
+    Raises:
+    -------
+    ValueError
+        If the input tract state is not a 1D array or has an incorrect length.
+    VtlApiError
+        If the tube state computation process fails, a VtlApiError is raised with details.
+
+    Notes:
+    ------
+    - Use this function to compute tube state information from a vocal tract state.
+    - The computed information may include tube length, tube area, tube articulator, incisor position,
+      tongue tip side elevation, and velum opening, depending on the selected options.
+
+    Example:
+    --------
+    >>> from vocaltractlab_cython import tract_state_to_tube_state
+    >>> import numpy as np
+    >>> try:
+    >>>     vocal_tract_state = np.array([0.1, 0.2, 0.3])
+    >>>     tube_state = tract_state_to_tube_state(vocal_tract_state)
+    >>>     print("Computed Tube State:")
+    >>>     if tube_state['tube_length'] is not None:
+    >>>         print(f"Tube Length: {tube_state['tube_length']}")
+    >>>     if tube_state['tube_area'] is not None:
+    >>>         print(f"Tube Area: {tube_state['tube_area']}")
+    >>>     if tube_state['tube_articulator'] is not None:
+    >>>         print(f"Tube Articulator: {tube_state['tube_articulator']}")
+    >>>     if tube_state['incisor_position'] is not None:
+    >>>         print(f"Incisor Position: {tube_state['incisor_position']}")
+    >>>     if tube_state['tongue_tip_side_elevation'] is not None:
+    >>>         print(f"Tongue Tip Side Elevation: {tube_state['tongue_tip_side_elevation']}")
+    >>>     if tube_state['velum_opening'] is not None:
+    >>>         print(f"Velum Opening: {tube_state['velum_opening']}")
+    >>> except ValueError as ve:
+    >>>     print(f"Invalid input vocal tract state: {ve}")
+    >>> except VtlApiError as e:
+    >>>     print(f"Tube state computation failed: {e}")
+
+    """
+    vtl_constants = get_constants()
+
+    # Check if the tract state is a 1D array
+    if tract_state.ndim != 1:
+        raise ValueError( 'Tract state must be a 1D array.' )
+
+    # Check if the tract state has the correct length
+    if tract_state.shape[0] != vtl_constants[ 'n_tract_params' ]:
+        raise ValueError(
+            f"""
+            Tract state has length {tract_state.shape[0]}, 
+            but should have length {vtl_constants[ "n_tract_params" ]}.
+            """
+            )
+        
     tube_length = None
     tube_area = None
     tube_articulator = None
@@ -901,7 +1515,6 @@ def tract_state_to_tube_state(
     tongue_tip_side_elevation = None
     velum_opening = None
 
-    vtl_constants = get_constants()
     cdef np.ndarray[ np.float64_t, ndim=1 ] cTractParams = tract_state.ravel()
     cdef np.ndarray[ np.float64_t, ndim=1 ] cTubeLength_cm = np.zeros(
         vtl_constants[ 'n_tube_sections' ],
@@ -918,6 +1531,7 @@ def tract_state_to_tube_state(
     cdef double cIncisorPos_cm = 0.0
     cdef double cTongueTipSideElevation = 0.0
     cdef double cVelumOpening_cm2 = 0.0
+
     if fast_calculation:
         vtlCalcTube = vtlFastTractToTube
         function_name = 'vtlFastTractToTube'
@@ -934,24 +1548,40 @@ def tract_state_to_tube_state(
         &cTongueTipSideElevation,
         &cVelumOpening_cm2
         )
+
     if value != 0:
         raise VtlApiError(
             get_api_exception(
                 function_name = function_name,
                 return_value = value,
+                function_args = dict(
+                    tract_state = tract_state,
+                    fast_calculation = fast_calculation,
+                    save_tube_length = save_tube_length,
+                    save_tube_area = save_tube_area,
+                    save_tube_articulator = save_tube_articulator,
+                    save_incisor_position = save_incisor_position,
+                    save_tongue_tip_side_elevation = save_tongue_tip_side_elevation,
+                    save_velum_opening = save_velum_opening,
                 )
             )
+        )
 
     if save_tube_length:
         tube_length = np.array( cTubeLength_cm )
+
     if save_tube_area:
         tube_area = np.array( cTubeArea_cm2 )
+
     if save_tube_articulator:
         tube_articulator = np.array( cTubeArticulator )
+
     if save_incisor_position:
         incisor_position = float( cIncisorPos_cm )
+
     if save_tongue_tip_side_elevation:
         tongue_tip_side_elevation = float( cTongueTipSideElevation )
+
     if save_velum_opening:
         velum_opening = float( cVelumOpening_cm2 )
     
@@ -963,7 +1593,10 @@ def tract_state_to_tube_state(
         tongue_tip_side_elevation = tongue_tip_side_elevation,
         velum_opening = velum_opening,
         )
+
     return tube_state
+
+
 '''
 def tract_state_to_ema_and_mesh(
         tract_state: np.ndarray,

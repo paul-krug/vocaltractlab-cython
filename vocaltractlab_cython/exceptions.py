@@ -161,6 +161,7 @@ class VtlApiError( ValueError ):
 def get_api_exception(
         function_name,
         return_value,
+        function_args = None,
         ):
     if function_name not in api_exceptions.keys():
         raise ValueError(
@@ -191,4 +192,8 @@ def get_api_exception(
         {return_value} which probably means: {api_exception}. Please
         check the API documention or backend source code for details.
         """
+    if function_args is not None:
+        error_message += f"""
+            The function arguments were: {function_args}.
+            """
     return error_message
