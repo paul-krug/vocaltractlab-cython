@@ -1,3 +1,5 @@
+# Import the numpy C-API
+#<void>numpy._import_array()
 #test
 
 
@@ -8,15 +10,12 @@ import os
 import atexit
 import logging as log
 import warnings
-#import numpy as np
-#print(np.__version__)
-dtop
-#cimport numpy as npc
-# Import the numpy C-API
-#<void>np._import_array()
+import numpy as np
+cimport numpy as np
+
 
 from typing import List, Dict, Union, Optional
-'''
+
 #from .cVocalTractLabApi cimport vtlCalcTongueRootAutomatically
 
 from .cVocalTractLabApi cimport vtlInitialize
@@ -62,30 +61,30 @@ def _initialize( speaker_file_path: str ):
     automatically when the module is loaded. Therefore, users do not
     need to call this function explicitly.
 
-    Parameters:
+    Parameters
     ----------
     speaker_file_path : str
         The path to the speaker-specific configuration file.
 
-    Raises:
-    -------
+    Raises
+    ------
     VtlApiError
         If the initialization process fails, a VtlApiError is raised 
         with details.
 
-    Returns:
-    --------
+    Returns
+    -------
     None
 
-    Notes:
-    ------
+    Notes
+    -----
     - The `speaker_file_path` should be a valid path to the speaker
       configuration file needed by the VTL API.
     - If the initialization process is successful, the VTL API is ready
       for use.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import _initialize
     >>> try:
     >>>     _initialize("path/to/speaker.cfg")
@@ -115,24 +114,24 @@ def _close():
     called when the module is unloaded. Therefore, users do not need to
     call this function explicitly.
 
-    Raises:
-    -------
+    Raises
+    ------
     VtlApiError
         If the closing process fails, a VtlApiError is raised with details.
 
-    Returns:
-    --------
+    Returns
+    -------
     None
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to gracefully close the VTL API after you've finished your tasks
       with the API.
     - If the closing process is successful, the VTL API will be closed, and allocated
       resources will be released.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import _close
     >>> try:
     >>>     _close()
@@ -159,30 +158,30 @@ def calculate_tongueroot_automatically( automatic_calculation: bool ):
     This function configures whether the VocalTractLab (VTL) API should automatically calculate
     the Tongue Root parameters or not.
 
-    Parameters:
+    Parameters
     ----------
     automatic_calculation : bool
         Specify whether to enable (True) or disable (False) automatic calculation of Tongue Root parameters.
 
-    Raises:
-    -------
+    Raises
+    ------
     TypeError
         If the `automatic_calculation` argument is not a boolean.
 
     VtlApiError
         If the configuration process fails, a VtlApiError is raised with details.
 
-    Returns:
-    --------
+    Returns
+    -------
     None
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to configure the VTL API's behavior regarding the automatic calculation of Tongue Root parameters.
     - Set `automatic_calculation` to True to enable automatic calculation or False to disable it.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import calculate_tongueroot_automatically
     >>> try:
     >>>     calculate_tongueroot_automatically(True)  # Enable automatic calculation
@@ -249,7 +248,7 @@ def gesture_file_to_audio(
     This function generates audio from a gestural score file using the VocalTractLab (VTL) API.
     The generated audio can be saved as a WAV file.
 
-    Parameters:
+    Parameters
     ----------
     gesture_file : str
         The path to the gestural score file.
@@ -258,24 +257,24 @@ def gesture_file_to_audio(
     verbose_api : bool, optional
         Enable console output from the VTL API (True) or disable it (False, default).
 
-    Returns:
-    --------
+    Returns
+    -------
     np.ndarray
         A NumPy array containing the generated audio samples.
 
-    Raises:
-    -------
+    Raises
+    ------
     VtlApiError
         If the audio generation process fails, a VtlApiError is raised with details.
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to generate audio from a gestural score file.
     - The generated audio can be saved as a WAV file at the specified audio_file path.
     - The audio will be an array of audio samples.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import gesture_file_to_audio
     >>> try:
     >>>     gesture_file = "gestural_score.txt"
@@ -295,7 +294,7 @@ def gesture_file_to_audio(
     cGesFileName = gesture_file.encode()
     cWavFileName = audio_file.encode()
 
-    duration = get_gestural_score_duration( gesture_file )
+    duration = get_gesture_duration( gesture_file )
     cdef np.ndarray[ np.float64_t, ndim=1 ] cAudio = np.zeros(
         duration[ 'n_audio_samples' ],
         dtype='float64',
@@ -339,25 +338,25 @@ def gesture_file_to_motor_file(
 
     This function generates a motor (tract sequence) file from a gestural score file using the VocalTractLab (VTL) API.
 
-    Parameters:
+    Parameters
     ----------
     gesture_file : str
         The path to the gestural score file.
     motor_file : str
         The path to save the generated motor (tract sequence) file.
 
-    Raises:
-    -------
+    Raises
+    ------
     VtlApiError
         If the motor file generation process fails, a VtlApiError is raised with details.
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to generate a motor file (tract sequence) from a gestural score file.
     - The motor file will be created at the specified motor_file path.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import gesture_file_to_motor_file
     >>> try:
     >>>     gesture_file = "gestural_score.txt"
@@ -405,8 +404,8 @@ def get_constants():
     This function retrieves various constants and parameters from the VocalTractLab (VTL) API,
     providing important information about the current VTL configuration.
 
-    Returns:
-    --------
+    Returns
+    -------
     dict
         A dictionary containing the following VTL constants and parameters:
         - 'sr_audio': int - Audio sampling rate.
@@ -416,21 +415,21 @@ def get_constants():
         - 'n_glottis_params': int - Number of glottis parameters.
         - 'n_samples_per_state': int - Number of audio samples per vocal tract state.
 
-    Raises:
-    -------
+    Raises
+    ------
     VtlApiError
         If the retrieval process fails, a VtlApiError is raised with details.
     ValueError
         If any of the retrieved values are below zero, a ValueError is raised.
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to obtain important constants and parameters to configure your VTL API
       usage.
     - It's important to check the retrieved values to ensure they are valid for your application.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import get_constants
     >>> try:
     >>>     constants = get_constants()
@@ -490,31 +489,31 @@ def get_gesture_duration(
     score file, including the number of audio samples,
     the number of gesture samples, and the duration in seconds.
 
-    Parameters:
+    Parameters
     ----------
     gesture_file : str
         The path to the gestural score file.
 
-    Returns:
-    --------
+    Returns
+    -------
     dict
         A dictionary containing the following duration information:
         - 'n_audio_samples': int - Number of audio samples.
         - 'n_gesture_samples': int - Number of gesture samples.
         - 'duration': float - Duration in seconds.
 
-    Raises:
-    -------
+    Raises
+    ------
     VtlApiError
         If the retrieval process fails, a VtlApiError is raised with details.
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to obtain information about the duration of a gestural score file.
     - The duration is calculated based on the number of audio samples and the audio sampling rate.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import get_gesture_duration
     >>> try:
     >>>     gesture_file = "gestural_score.txt"
@@ -566,13 +565,13 @@ def get_param_info( params: str ) -> List[Dict[str, Union[str, float]]]:
     This function retrieves information about vocal tract or glottis parameters from the VocalTractLab (VTL) API,
     including parameter names, descriptions, units, minimum and maximum values, and standard values.
 
-    Parameters:
+    Parameters
     ----------
     params : str
         Specify whether to retrieve 'tract' parameters (vocal tract) or 'glottis' parameters (vocal folds).
 
-    Returns:
-    --------
+    Returns
+    -------
     List[Dict[str, Union[str, float]]]
         A list of dictionaries, each containing the following parameter information:
         - 'name': str - The name of the parameter.
@@ -582,20 +581,20 @@ def get_param_info( params: str ) -> List[Dict[str, Union[str, float]]]:
         - 'max': float - The maximum allowable value for the parameter.
         - 'standard': float - A standard or default value for the parameter.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If the `params` argument is not 'tract' or 'glottis'.
     VtlApiError
         If the retrieval process fails, a VtlApiError is raised with details.
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to obtain information about vocal tract or glottis parameters in the VTL API.
     - Check the `params` argument to specify whether you want vocal tract or glottis parameters.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import get_param_info
     >>> try:
     >>>     vocal_tract_params = get_param_info('tract')
@@ -685,34 +684,34 @@ def get_shape(
     from the VocalTractLab (VTL) API. The shape parameters represent the configuration of
     the vocal tract or glottis at a particular point in time.
 
-    Parameters:
+    Parameters
     ----------
     shape_name : str
         The name of the vocal tract or glottis shape to retrieve.
     params : str
         Specify whether to retrieve 'tract' parameters (vocal tract) or 'glottis' parameters (vocal folds).
 
-    Returns:
-    --------
+    Returns
+    -------
     np.ndarray
         A NumPy array containing the shape parameters for the specified shape.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If the `params` argument is not 'tract' or 'glottis'.
     VtlApiError
         If the retrieval process fails, a VtlApiError is raised with details.
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to obtain shape parameters for a specific vocal tract or glottis shape.
     - Check the `params` argument to specify whether you want vocal tract or glottis parameters.
     - The returned NumPy array contains the shape parameters, and its size is determined by
       the number of vocal tract or glottis parameters.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import get_shape
     >>> try:
     >>>     shape_name = "example_shape"
@@ -763,18 +762,18 @@ def get_version() -> str:
     This function retrieves and returns the version information of the VocalTractLab (VTL) library,
     including the compile date of the library.
 
-    Returns:
-    --------
+    Returns
+    -------
     str
         A string containing the version information of the VTL library.
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to obtain information about the version of the VTL library.
     - The returned string typically includes the compile date of the library.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import get_version
     >>> version = get_version()
     >>> print("VTL Library Version:", version)
@@ -796,7 +795,7 @@ def phoneme_file_to_gesture_file(
 
     This function generates a gestural score file from a phoneme sequence file using the VocalTractLab (VTL) API.
 
-    Parameters:
+    Parameters
     ----------
     phoneme_file : str
         The path to the phoneme sequence file.
@@ -805,18 +804,18 @@ def phoneme_file_to_gesture_file(
     verbose_api : bool, optional
         Enable console output from the VTL API (True) or disable it (False, default).
 
-    Raises:
-    -------
+    Raises
+    ------
     VtlApiError
         If the gestural score file generation process fails, a VtlApiError is raised with details.
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to generate a gestural score file from a phoneme sequence file.
     - The generated gestural score file will be created at the specified gesture_file path.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import phoneme_file_to_gesture_file
     >>> try:
     >>>     phoneme_file = "phoneme_sequence.txt"
@@ -870,7 +869,7 @@ def _synth_block(
 
     This function synthesizes audio based on the given tract and glottis parameters using the VocalTractLab (VTL) API.
 
-    Parameters:
+    Parameters
     ----------
     tract_parameters : np.ndarray
         An array containing tract parameters for each frame.
@@ -881,23 +880,23 @@ def _synth_block(
     verbose_api : bool, optional
         Enable console output from the VTL API (True) or disable it (False, default).
 
-    Returns:
-    --------
+    Returns
+    -------
     np.ndarray
         An array containing the synthesized audio samples.
 
-    Raises:
-    -------
+    Raises
+    ------
     VtlApiError
         If the audio synthesis process fails, a VtlApiError is raised with details.
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to synthesize audio based on tract and glottis parameters.
     - The length of the returned audio array is determined by the number of frames and state_samples.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import _synth_block
     >>> import numpy as np
     >>> try:
@@ -952,7 +951,7 @@ def synth_block(
     It automatically checks and handles parameter shapes and provides an option to specify the number of audio samples
     per vocal tract state (frame).
 
-    Parameters:
+    Parameters
     ----------
     tract_parameters : np.ndarray
         An array containing tract parameters for each frame.
@@ -963,26 +962,26 @@ def synth_block(
     verbose_api : bool, optional
         Enable console output from the VTL API (True) or disable it (False, default).
 
-    Returns:
-    --------
+    Returns
+    -------
     np.ndarray
         An array containing the synthesized audio samples.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If the input parameter arrays have incorrect shapes or dimensions.
     VtlApiError
         If the audio synthesis process fails, a VtlApiError is raised with details.
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to synthesize audio based on tract and glottis parameters.
     - The function automatically checks the input parameter shapes and dimensions.
     - You can specify the number of audio samples per vocal tract state, or it will be determined by the VTL API.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import synth_block
     >>> import numpy as np
     >>> try:
@@ -1051,26 +1050,26 @@ def motor_file_to_audio_file(
     This function converts a motor (tract) file to an audio file using the VocalTractLab (VTL) API. The motor file
     contains motor commands for the vocal tract, which are used to generate the corresponding audio.
 
-    Parameters:
+    Parameters
     ----------
     motor_file : str
         The path to the motor (tract) file to be converted.
     audio_file : str
         The path to the output audio file to be generated.
 
-    Raises:
-    -------
+    Raises
+    ------
     VtlApiError
         If the conversion process fails, a VtlApiError is raised with details.
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to convert a motor file to an audio file.
     - The motor file should contain motor commands for the vocal tract.
     - The audio file will be generated based on the motor commands.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import motor_file_to_audio_file
     >>> try:
     >>>     motor_file = 'motor_commands.ctr'
@@ -1123,35 +1122,35 @@ def tract_state_to_limited_tract_state(
     This function converts a full vocal tract state to a limited vocal tract state using the VocalTractLab (VTL) API.
     The limited tract state has the same length as the full state but may have limited parameter values.
 
-    Parameters:
+    Parameters
     ----------
     tract_state : np.ndarray
         An array representing the full vocal tract state.
 
-    Returns:
-    --------
+    Returns
+    -------
     np.ndarray
         An array representing the limited vocal tract state.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If the input tract state is not a 1D array or has an incorrect length.
     VtlApiError
         If the conversion process fails, a VtlApiError is raised with details.
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to convert a full vocal tract state to a limited vocal tract state.
     - The limited state may have parameter values limited by the VTL API.
 
-    Warnings:
-    ---------
+    Warnings
+    --------
     - Virtual target parameters will be limited to the respective non-virtual range.
     - This may have a significant impact on the resulting vocal tract dynamics.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import tract_state_to_limited_tract_state
     >>> import numpy as np
     >>> try:
@@ -1216,15 +1215,15 @@ def tract_state_to_svg(
     This function exports the vocal tract state represented by a 1D NumPy array to an SVG file.
     The SVG file visually represents the vocal tract configuration at a specific point in time.
 
-    Parameters:
+    Parameters
     ----------
     tract_state : np.ndarray
         A 1D NumPy array representing the vocal tract state.
     svg_path : str, optional
         The path to save the SVG file. If not provided, the file will not be saved.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         - If the tract_state is not a 1D array.
         - If the length of the tract_state does not match the number of vocal tract parameters.
@@ -1232,14 +1231,14 @@ def tract_state_to_svg(
     VtlApiError
         If the SVG export process fails, a VtlApiError is raised with details.
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to visualize and export the vocal tract state as an SVG file.
     - The SVG file visually represents the vocal tract configuration.
     - The SVG file will be created at the specified svg_path.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import tract_state_to_svg
     >>> try:
     >>>     vocal_tract_state = np.array([0.1, 0.2, 0.3, 0.4, 0.5])  # Example vocal tract state
@@ -1306,7 +1305,7 @@ def tract_state_to_transfer_function(
     This function computes the transfer function, including the magnitude and phase spectra, from a given vocal tract
     state using the VocalTractLab (VTL) API.
 
-    Parameters:
+    Parameters
     ----------
     tract_state : np.ndarray
         An array representing the vocal tract state.
@@ -1317,28 +1316,28 @@ def tract_state_to_transfer_function(
     save_phase_spectrum : bool, optional
         Set to True to save the phase spectrum (default is True).
 
-    Returns:
-    --------
+    Returns
+    -------
     dict
         A dictionary containing the following computed spectra and information:
         - 'magnitude_spectrum': np.ndarray - Magnitude spectrum of the transfer function.
         - 'phase_spectrum': np.ndarray - Phase spectrum of the transfer function.
         - 'n_spectrum_samples': int - Number of spectrum samples.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If the input tract state is not a 1D array or has an incorrect length.
     VtlApiError
         If the transfer function computation process fails, a VtlApiError is raised with details.
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to compute the transfer function from a vocal tract state.
     - The computed transfer function includes both magnitude and phase spectra.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import tract_state_to_transfer_function
     >>> import numpy as np
     >>> try:
@@ -1427,7 +1426,7 @@ def tract_state_to_tube_state(
 
     This function computes various tube state information from a given vocal tract state using the VocalTractLab (VTL) API.
 
-    Parameters:
+    Parameters
     ----------
     tract_state : np.ndarray
         An array representing the vocal tract state.
@@ -1446,8 +1445,8 @@ def tract_state_to_tube_state(
     save_velum_opening : bool, optional
         Set to True to save velum opening information (default is True).
 
-    Returns:
-    --------
+    Returns
+    -------
     dict
         A dictionary containing various tube state information:
         - 'tube_length': np.ndarray - Tube length information.
@@ -1458,21 +1457,21 @@ def tract_state_to_tube_state(
         - 'velum_opening': float - Velum opening.
         Values may be None for the information that is not requested to be saved.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If the input tract state is not a 1D array or has an incorrect length.
     VtlApiError
         If the tube state computation process fails, a VtlApiError is raised with details.
 
-    Notes:
-    ------
+    Notes
+    -----
     - Use this function to compute tube state information from a vocal tract state.
     - The computed information may include tube length, tube area, tube articulator, incisor position,
       tongue tip side elevation, and velum opening, depending on the selected options.
 
-    Example:
-    --------
+    Example
+    -------
     >>> from vocaltractlab_cython import tract_state_to_tube_state
     >>> import numpy as np
     >>> try:
@@ -1615,6 +1614,3 @@ _initialize(
         'JD3.speaker'
         )
     )
-
-
-'''
