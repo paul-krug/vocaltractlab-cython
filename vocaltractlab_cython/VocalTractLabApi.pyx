@@ -8,11 +8,15 @@ import os
 import atexit
 import logging as log
 import warnings
-import numpy as np
-cimport numpy as np
+#import numpy as np
+#print(np.__version__)
+dtop
+#cimport numpy as npc
+# Import the numpy C-API
+#<void>np._import_array()
 
 from typing import List, Dict, Union, Optional
-
+'''
 #from .cVocalTractLabApi cimport vtlCalcTongueRootAutomatically
 
 from .cVocalTractLabApi cimport vtlInitialize
@@ -1597,46 +1601,7 @@ def tract_state_to_tube_state(
     return tube_state
 
 
-'''
-def tract_state_to_ema_and_mesh(
-        tract_state: np.ndarray,
-        ema_file_path: str = None,
-        mesh_file_path: str = None,
-        ):
-    vtl_constants = get_constants()
-    # Check if the tract state is a 1D array
-    if tract_state.ndim != 1:
-        raise ValueError( 'Tract state must be a 1D array.' )
-    # Check if the tract state has the correct length
-    if tract_state.shape[0] != vtl_constants[ 'n_tract_params' ]:
-        raise ValueError(
-            f"""
-            Tract state has length {tract_state.shape[0]}, 
-            but should have length {vtl_constants[ "n_tract_params" ]}.
-            """
-            )
-    # Make the directory of the ema file if it does not exist
-    os.makedirs( os.path.dirname( ema_file_path ), exist_ok=True )
-    # Make the directory of the mesh file if it does not exist
-    os.makedirs( os.path.dirname( mesh_file_path ), exist_ok=True )
 
-    cTractParams = tract_state.ravel()
-    cEmaFileName = ema_file_path.encode()
-    cMeshFileName = mesh_file_path.encode()
-    value = vtlGesturalScoreToEmaAndMesh(
-        &cTractParams[0],
-        cEmaFileName,
-        cMeshFileName,
-        )
-    if value != 0:
-        raise VtlApiError(
-            get_api_exception(
-                function_name = 'vtlGesturalScoreToEmaAndMesh',
-                return_value = value,
-                )
-            )
-    return
-'''
     
 
 # Function to be called at module exit
@@ -1650,3 +1615,6 @@ _initialize(
         'JD3.speaker'
         )
     )
+
+
+'''
