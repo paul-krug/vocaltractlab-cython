@@ -3,6 +3,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 import unittest
+import numpy as np
 from vocaltractlab_cython import get_shape, VtlApiError, get_constants
 
 class TestGetShape(unittest.TestCase):
@@ -10,8 +11,8 @@ class TestGetShape(unittest.TestCase):
     def test_retrieve_vocal_tract_shape(self):
         # Test retrieving vocal tract shape parameters
         try:
-            shape_name = "valid_shape"
-            vocal_tract_shape = get_shape(shape_name, 'tract')
+            valid_shape_name = "a"
+            vocal_tract_shape = get_shape(valid_shape_name, 'tract')
             self.assertIsInstance(vocal_tract_shape, np.ndarray)  # Check if vocal_tract_shape is a NumPy array
             # Check if the shape array has the expected shape (size)
             vtl_constants = get_constants()
@@ -22,8 +23,8 @@ class TestGetShape(unittest.TestCase):
     def test_retrieve_glottis_shape(self):
         # Test retrieving glottis shape parameters
         try:
-            shape_name = "valid_shape"
-            glottis_shape = get_shape(shape_name, 'glottis')
+            valid_shape_name = "modal"
+            glottis_shape = get_shape(valid_shape_name, 'glottis')
             self.assertIsInstance(glottis_shape, np.ndarray)  # Check if glottis_shape is a NumPy array
             # Check if the shape array has the expected shape (size)
             vtl_constants = get_constants()
