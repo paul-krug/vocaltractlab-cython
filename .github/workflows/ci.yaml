@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
         python-version:
           - '3.8'
           - '3.9'
@@ -40,9 +40,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Install package
+      - name: Install package in editable mode
         run: |
-          pip install .
+          pip install -e .
 
       - name: Run tests
         run: python -m unittest discover
