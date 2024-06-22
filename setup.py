@@ -142,8 +142,14 @@ cmdclass = dict( build_py = BuildVocalTractLabApi )
 
 setup_args = dict(
     name = 'vocaltractlab_cython',
-    version = '0.0.9',
+    version = '0.0.10',
+    author='Paul Krug',
+    url='https://github.com/paul-krug/vocaltractlab-cython',
     description = 'Cython wrapper for VocalTractLabApi',
+    long_description_content_type='text/markdown',
+    long_description=open('README.md').read(),
+    license='GPL-3.0',
+    
     ext_modules = EXT_MODULES,
     cmdclass = cmdclass,
     packages = find_packages(),#[ 'vocaltractlab_cython' ],# 'vocaltractlab_cython.resources' ],
