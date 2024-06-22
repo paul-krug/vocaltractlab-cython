@@ -75,6 +75,12 @@ def build_vtl_api():
         LIB_PATH,
         VTL_CYTHON_PATH,
         )
+    # On Windows, copy the respective .lib file as well
+    if sys.platform == 'win32':
+        shutil.copy(
+            LIB_PATH.replace( '.dll', '.lib' ),
+            VTL_CYTHON_PATH,
+        )
     # Copy API header file from backend to vtl_cython
     shutil.copy(
         os.path.join(
@@ -120,17 +126,22 @@ def build_vtl_api():
 if sys.platform == 'win32':
     runtime_library_dirs = None
 elif sys.platform == 'darwin':
-    runtime_library_dirs = [ '@loader_path', '@loader_path/VocalTractLab' ]
+    runtime_library_dirs = [
+        '@loader_path',
+        os.path.join( '@loader_path', 'vocaltractlab_cython' ),
+        ]
 else:
-    runtime_library_dirs = [ '$ORIGIN' ]#, '$ORIGIN/VocalTractLab' ]
+    runtime_library_dirs = [ '$ORIGIN' ]#, '$ORIGIN/vocaltractlab_cython' ]
 
 vtl_api_extension = Extension(
     'vocaltractlab_cython.VocalTractLabApi',
     sources = [
-        'vocaltractlab_cython/VocalTractLabApi.pyx',
+        os.path.join( 'vocaltractlab_cython', 'VocalTractLabApi.pyx' ),
         ],
     language="c",
-    libraries=[ 'vocaltractlab_cython/VocalTractLabApi' ],
+    libraries=[
+        os.path.join( 'vocaltractlab_cython', 'VocalTractLabApi' ),
+        ],
     include_dirs=[ np.get_include() ],
     runtime_library_dirs=runtime_library_dirs,
     #extra_compile_args=['-std=c++11'],
@@ -140,16 +151,21 @@ vtl_api_extension = Extension(
 EXT_MODULES = cythonize( vtl_api_extension )
 cmdclass = dict( build_py = BuildVocalTractLabApi )
 
+# Dependencies
+DEPENDENCIES = [
+    'numpy',
+]
+
 setup_args = dict(
     name = 'vocaltractlab_cython',
-    version = '0.0.10',
+    version = '0.0.11',
     author='Paul Krug',
     url='https://github.com/paul-krug/vocaltractlab-cython',
     description = 'Cython wrapper for VocalTractLabApi',
     long_description_content_type='text/markdown',
     long_description=open('README.md').read(),
     license='GPL-3.0',
-    
+
     ext_modules = EXT_MODULES,
     cmdclass = cmdclass,
     packages = find_packages(),#[ 'vocaltractlab_cython' ],# 'vocaltractlab_cython.resources' ],
@@ -176,6 +192,7 @@ setup_args = dict(
     include_package_data = True,
     use_scm_version = True,
     setup_requires = [ 'setuptools_scm' ],
+    install_requires=DEPENDENCIES,
 )
 
 setup(**setup_args)
