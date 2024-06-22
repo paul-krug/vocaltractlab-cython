@@ -142,7 +142,7 @@ cmdclass = dict( build_py = BuildVocalTractLabApi )
 
 setup_args = dict(
     name = 'vocaltractlab_cython',
-    version = '0.0.5',
+    version = '0.0.6',
     description = 'Cython wrapper for VocalTractLabApi',
     ext_modules = EXT_MODULES,
     cmdclass = cmdclass,
