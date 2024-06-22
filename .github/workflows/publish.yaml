@@ -6,7 +6,7 @@ on:
 
 jobs:
   build_wheels:
-    name: Build wheels on ${{ matrix.os }}
+    name: Build wheel for cp${{ matrix.python }}-${{ matrix.platform_id }}
     runs-on: ${{ matrix.os }}
     strategy:
       # Ensure that a wheel builder finishes even if another fails
@@ -14,21 +14,18 @@ jobs:
       matrix:
         include:
           # Window 64 bit
-          - os: windows-latest
-            python: 39
-            platform_id: win_amd64
-
-          - os: windows-latest
-            python: 310
-            platform_id: win_amd64
-
-          - os: windows-latest
-            python: 311
-            platform_id: win_amd64
-            
-          - os: windows-latest
-            python: 312
-            platform_id: win_amd64
+          #- os: windows-latest
+          #  python: 39
+          #  platform_id: win_amd64
+          #- os: windows-latest
+          #  python: 310
+          #  platform_id: win_amd64
+          #- os: windows-latest
+          #  python: 311
+          #  platform_id: win_amd64
+          #- os: windows-latest
+          #  python: 312
+          #  platform_id: win_amd64
 
           # Linux 64 bit
           - os: ubuntu-latest
@@ -54,6 +51,8 @@ jobs:
           submodules: recursive
 
       - name: Build wheels
+        env:
+          CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
         uses: pypa/cibuildwheel@v2.19.1
 
       - uses: actions/upload-artifact@v4
