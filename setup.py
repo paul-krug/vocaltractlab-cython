@@ -158,7 +158,7 @@ DEPENDENCIES = [
 
 setup_args = dict(
     name = 'vocaltractlab_cython',
-    version = '0.0.12',
+    version = '0.0.13',
     author='Paul Krug',
     url='https://github.com/paul-krug/vocaltractlab-cython',
     description = 'Cython wrapper for VocalTractLabApi',
