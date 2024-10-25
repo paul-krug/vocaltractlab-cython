@@ -12,6 +12,7 @@ vocaltractlab_cython/*
 !vocaltractlab_cython/cVocalTractLabApi.pxd
 !vocaltractlab_cython/VocalTractLabApi.pyx
 !vocaltractlab_cython/exceptions.py
+!vocaltractlab_cython/utils.py
 
 
 # Distribution / packaging

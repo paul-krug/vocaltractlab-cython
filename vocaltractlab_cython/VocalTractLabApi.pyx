@@ -1,10 +1,4 @@
-# Import the numpy C-API
-#<void>numpy._import_array()
-#test
 
-
-
-##path must be relative to setup.py
 
 import os
 import atexit
@@ -16,7 +10,6 @@ cimport numpy as np
 
 from typing import List, Dict, Union, Optional
 
-#from .cVocalTractLabApi cimport vtlCalcTongueRootAutomatically
 
 from .cVocalTractLabApi cimport vtlInitialize
 from .cVocalTractLabApi cimport vtlClose
@@ -47,6 +40,10 @@ from .cVocalTractLabApi cimport vtlTractSequenceToAudio
 #from .cVocalTractLabApi cimport vtlGesturalScoreToEmaAndMesh
 #from .cVocalTractLabApi cimport vtlTractSequenceToEmaAndMesh
 #from .cVocalTractLabApi cimport vtlSaveSpeaker
+
+from .utils import check_file_path
+from .utils import make_file_path
+from .utils import format_cstring
 
 from .exceptions import VtlApiError
 from .exceptions import get_api_exception
@@ -216,27 +213,6 @@ def calculate_tongueroot_automatically( automatic_calculation: bool ):
         )
     return
 
-def check_file_path(
-    file_path: str,
-    must_exist: bool = True,
-    ):
-    if not os.path.isfile( file_path ) and must_exist:
-        raise FileNotFoundError( f'File not found: {file_path}' )
-    # Check if path contains special characters
-    if not file_path.isascii():
-        raise ValueError(
-            f'File path contains non-ascii characters: {file_path}'
-            )
-    return
-
-def format_cstring( cString ):
-    x = cString.decode()
-    x = x.replace('\x00', '')
-    x = x.strip(' ')
-    x = x.strip('')
-    x = x.split('\t')
-    return x
-
 def gesture_file_to_audio(
         gesture_file: str,
         audio_file: Optional[ str ] = None,
@@ -369,8 +345,7 @@ def gesture_file_to_motor_file(
     """
     check_file_path( gesture_file )
     # Make the directory of the tract file if it does not exist
-    check_file_path( motor_file, must_exist=False )
-    os.makedirs( os.path.dirname( motor_file ), exist_ok=True )
+    make_file_path( motor_file )
 
     cGesFileName = gesture_file.encode()
     cTractSequenceFileName = motor_file.encode()
@@ -828,8 +803,8 @@ def phoneme_file_to_gesture_file(
     """
     check_file_path( phoneme_file )
     # Make the directory of the gestural score file if it does not exist
-    check_file_path( gesture_file, must_exist=False )
-    os.makedirs( os.path.dirname( gesture_file ), exist_ok=True )
+    make_file_path( gesture_file )
+
     
     cSegFileName = phoneme_file.encode()
     cGesFileName = gesture_file.encode()
@@ -1083,8 +1058,7 @@ def motor_file_to_audio_file(
     check_file_path( motor_file )
 
     # Make the directory of the audio file if it does not exist
-    check_file_path( audio_file, must_exist=False )
-    os.makedirs( os.path.dirname( audio_file ), exist_ok=True )
+    make_file_path( audio_file )
 
     cTractSequenceFileName = motor_file.encode()
     cWavFileName = audio_file.encode()
@@ -1267,8 +1241,7 @@ def tract_state_to_svg(
             )
 
     # Make the directory of the svg file if it does not exist
-    check_file_path( svg_path, must_exist=False )
-    os.makedirs( os.path.dirname( svg_path ), exist_ok=True )
+    make_file_path( svg_path )
     
     vtl_constants = get_constants()
     cdef np.ndarray[np.float64_t, ndim = 1] cTractParams = tract_state.ravel()
