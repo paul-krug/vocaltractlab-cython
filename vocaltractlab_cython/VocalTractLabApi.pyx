@@ -1,10 +1,4 @@
-# Import the numpy C-API
-#<void>numpy._import_array()
-#test
 
-
-
-##path must be relative to setup.py
 
 import os
 import atexit
@@ -16,7 +10,6 @@ cimport numpy as np
 
 from typing import List, Dict, Union, Optional
 
-#from .cVocalTractLabApi cimport vtlCalcTongueRootAutomatically
 
 from .cVocalTractLabApi cimport vtlInitialize
 from .cVocalTractLabApi cimport vtlClose
