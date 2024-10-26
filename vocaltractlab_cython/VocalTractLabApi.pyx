@@ -7,7 +7,7 @@ import warnings
 import numpy as np
 cimport numpy as np
 
-
+from pathlib import Path 
 from typing import List, Dict, Union, Optional
 
 
@@ -49,7 +49,21 @@ from .exceptions import VtlApiError
 from .exceptions import get_api_exception
 
 
-def _initialize( speaker_file_path: str ):
+DEFAULT_SPEAKER = 'JD3.speaker'
+DEFAULT_SPEAKER_PATH = os.path.join(
+    os.path.dirname(__file__),
+    'resources',
+    DEFAULT_SPEAKER,
+    )
+ACTIVE_SPEAKER_PATH = None
+# TODO: get auto_tongue_root directly from the API
+# Speaker path can currently not be accessed from the API,
+# because the API does not save it
+
+
+def _initialize(
+        speaker_file_path: Optional[ str ] = None,
+        ):
     """
     Initialize the VocalTractLab API.
 
@@ -60,8 +74,9 @@ def _initialize( speaker_file_path: str ):
 
     Parameters
     ----------
-    speaker_file_path : str
-        The path to the speaker-specific configuration file.
+    speaker_file_path : str, optional
+        The path to the speaker-specific configuration file. If not
+        provided, the default speaker configuration file will be used.
 
     Raises
     ------
@@ -90,6 +105,8 @@ def _initialize( speaker_file_path: str ):
     >>>     print(f"Initialization failed: {e}")
 
     """
+    if speaker_file_path is None:
+        speaker_file_path = DEFAULT_SPEAKER_PATH
     cSpeakerFileName = speaker_file_path.encode()
     value = vtlInitialize( cSpeakerFileName )
     if value != 0:
@@ -99,7 +116,9 @@ def _initialize( speaker_file_path: str ):
                 return_value = value,
                 )
             )
-    log.info( 'VTL API initialized.' )
+    global ACTIVE_SPEAKER_PATH
+    ACTIVE_SPEAKER_PATH = speaker_file_path
+    log.info( f'VTL API was initialized with speaker: {ACTIVE_SPEAKER_PATH}' )
     return
 
 def _close():
@@ -145,8 +164,79 @@ def _close():
                 return_value = value,
                 )
             )
+    global ACTIVE_SPEAKER_PATH
+    ACTIVE_SPEAKER_PATH = None
     log.info( 'VTL API closed.' )
     return
+
+def active_speaker():
+    """
+    Get the path to the active speaker configuration file.
+
+    This function retrieves the path to the active speaker configuration file
+    that was used to initialize the VocalTractLab (VTL) API.
+
+    Returns
+    -------
+    str
+        The path to the active speaker configuration file.
+
+    Notes
+    -----
+    - Use this function to obtain the path to the active speaker configuration file
+      that was used to initialize the VTL API.
+
+    Example
+    -------
+    >>> from vocaltractlab_cython import active_speaker
+    >>> speaker_path = active_speaker()
+    >>> print("Active Speaker Path:", speaker_path)
+
+    """
+    return ACTIVE_SPEAKER_PATH
+
+# TODO: Implement the following function
+#def auto_tongue_root_status():
+#    """
+#    Get the current status of automatic Tongue Root calculation.
+#
+#    This function retrieves the current status of automatic calculation of
+#    Tongue Root parameters in the VocalTractLab (VTL) API.
+#
+#    Returns
+#    -------
+#    bool
+#        True if automatic calculation of Tongue Root parameters is enabled,
+#        False if it is disabled.
+#
+#    Notes
+#    -----
+#    - Use this function to check the current status of automatic calculation of
+#      Tongue Root parameters in the VTL API.
+#
+#    Example
+#    -------
+#    >>> from vocaltractlab_cython import auto_tongue_root
+#    >>> auto_calculation = auto_tongue_root_status()
+#    >>> if auto_calculation:
+#    >>>     print("Automatic Tongue Root calculation is enabled.")
+#    >>> else:
+#    >>>     print("Automatic Tongue Root calculation is disabled.")
+#    
+#    """
+#    cdef bint automaticCalculationStatus
+#    value = vtlGetAutomaticTongeStatus( &automaticCalculationStatus )
+#    if value != 0:
+#        raise VtlApiError(
+#            get_api_exception(
+#                function_name = 'vtlGetAutomaticTongeStatus',
+#                return_value = value,
+#                )
+#            )
+#    x = bool( automaticCalculationStatus )
+#    return x
+
+
 
 def calculate_tongueroot_automatically( automatic_calculation: bool ):
     """
@@ -208,7 +298,7 @@ def calculate_tongueroot_automatically( automatic_calculation: bool ):
                 )
             )
 
-    warnings.warn(
+    log.info(
         f'Automatic calculation of the Tongue Root parameters was set to {automatic_calculation}.'
         )
     return
@@ -1580,10 +1670,4 @@ def tract_state_to_tube_state(
 atexit.register( _close )
 
 # Function to be called at module import
-_initialize(
-    os.path.join(
-        os.path.dirname(__file__),
-        'resources',
-        'JD3.speaker'
-        )
-    )
+_initialize( DEFAULT_SPEAKER_PATH )
