@@ -39,7 +39,7 @@ jobs:
 
       - name: Print submodule CMake version
         run: |
-          grep cmake_minimum_required path/to/submodule/CMakeLists.txt
+          grep cmake_minimum_required VocalTractLabBackend-dev/CMakeLists.txt
 
       - name: Clean previous builds
         run: |
