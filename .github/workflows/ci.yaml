@@ -46,6 +46,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Upgrade CMake
+        run: |
+          pip install --upgrade cmake
+          cmake --version
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
