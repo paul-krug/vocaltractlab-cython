@@ -29,6 +29,17 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0  # ensures full history in case of shallow clones
+
+      # Ensure submodules are up to date with remote and initialized
+      - name: Update submodules
+        run: git submodule update --init --recursive --remote
+
+      # Clean build directories to prevent stale CMake cache issues
+      - name: Clean previous builds
+        run: |
+          rm -rf build out *.egg-info || true
+        shell: bash  # ensure compatibility across OS
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
