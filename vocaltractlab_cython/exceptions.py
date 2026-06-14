@@ -149,6 +149,18 @@ api_exceptions = dict(
         'Success.',
         'Saving the speaker file failed.',
     ],
+    vtlSetAnatomyFromAge = [
+        'Success.',
+        'The API was not initialized.',
+    ],
+    vtlGetAnatomyParams = [
+        'Success.',
+        'The API was not initialized.',
+    ],
+    vtlSetAnatomyParams = [
+        'Success.',
+        'The API was not initialized.',
+    ],
 )
 
 

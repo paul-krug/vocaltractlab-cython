@@ -1,4 +1,10 @@
-
+# cython: annotation_typing=False
+# Treat PEP 484 annotations (e.g. ``arg: bool``) as documentation only, not as
+# Cython coercion directives. Without this, Cython 3.x coerces annotated
+# arguments at the call boundary (e.g. ``bool("x") -> True``), which silently
+# accepts invalid input and bypasses the explicit isinstance() validation in
+# these bindings. Keeping it off makes input validation explicit and stable
+# across Cython versions.
 
 import os
 import atexit
@@ -23,11 +29,16 @@ from .cVocalTractLabApi cimport vtlGetTractParams
 from .cVocalTractLabApi cimport vtlExportTractSvg
 from .cVocalTractLabApi cimport vtlTractToTube
 from .cVocalTractLabApi cimport vtlFastTractToTube
+from .cVocalTractLabApi cimport vtlTractToFullTube
 from .cVocalTractLabApi cimport vtlGetDefaultTransferFunctionOptions
 from .cVocalTractLabApi cimport vtlGetTransferFunction
+from .cVocalTractLabApi cimport TransferFunctionOptions
+from .cVocalTractLabApi cimport RadiationType
+from .cVocalTractLabApi cimport NO_RADIATION
+from .cVocalTractLabApi cimport SPECTRUM_UU
 from .cVocalTractLabApi cimport vtlInputTractToLimitedTract
-#from .cVocalTractLabApi cimport vtlSynthesisReset
-#from .cVocalTractLabApi cimport vtlSynthesisAddTube
+from .cVocalTractLabApi cimport vtlSynthesisReset
+from .cVocalTractLabApi cimport vtlSynthesisAddTube
 #from .cVocalTractLabApi cimport vtlSynthesisAddTract
 from .cVocalTractLabApi cimport vtlSynthBlock
 #from .cVocalTractLabApi cimport vtlApiTest
@@ -36,10 +47,29 @@ from .cVocalTractLabApi cimport vtlGesturalScoreToAudio
 from .cVocalTractLabApi cimport vtlGesturalScoreToTractSequence
 from .cVocalTractLabApi cimport vtlGetGesturalScoreDuration
 from .cVocalTractLabApi cimport vtlTractSequenceToAudio
-#from .cVocalTractLabApi cimport vtlGesturalScoreToEma
 #from .cVocalTractLabApi cimport vtlGesturalScoreToEmaAndMesh
 #from .cVocalTractLabApi cimport vtlTractSequenceToEmaAndMesh
-#from .cVocalTractLabApi cimport vtlSaveSpeaker
+from .cVocalTractLabApi cimport vtlSaveSpeaker
+from .cVocalTractLabApi cimport vtlSetAnatomyFromAge
+from .cVocalTractLabApi cimport vtlGetAnatomyParams
+from .cVocalTractLabApi cimport vtlSetAnatomyParams
+from .cVocalTractLabApi cimport vtlGlottisCalcGeometry
+from .cVocalTractLabApi cimport vtlGlottisIncTime
+from .cVocalTractLabApi cimport vtlGlottisResetMotion
+from .cVocalTractLabApi cimport vtlGetGlottisStaticParamInfo
+from .cVocalTractLabApi cimport vtlTdsSetOptions
+from .cVocalTractLabApi cimport vtlTdsResetMotion
+from .cVocalTractLabApi cimport vtlSetFossaDims
+from .cVocalTractLabApi cimport vtlTdsSetTubeAndRun
+from .cVocalTractLabApi cimport vtlGetTLIntermediateValues
+from .cVocalTractLabApi cimport vtlGetCrossSections
+from .cVocalTractLabApi cimport vtlGetProfiles
+from .cVocalTractLabApi cimport vtlGetCenterline
+from .cVocalTractLabApi cimport vtlGetOutlines
+from .cVocalTractLabApi cimport vtlGetTongueRibData
+from .cVocalTractLabApi cimport vtlGetTongueWidthBounds
+from .cVocalTractLabApi cimport vtlGetSurfaceVertices
+from .cVocalTractLabApi cimport vtlGetCuts
 
 from .utils import check_file_path
 from .utils import make_file_path
@@ -1361,6 +1391,16 @@ def tract_state_to_transfer_function(
         n_spectrum_samples: int = 8192,
         save_magnitude_spectrum: bool = True,
         save_phase_spectrum: bool = True,
+        boundary_layer: bool = None,
+        heat_conduction: bool = None,
+        soft_walls: bool = None,
+        hagen_resistance: bool = None,
+        inner_length_corrections: bool = None,
+        lumped_elements: bool = None,
+        paranasal_sinuses: bool = None,
+        piriform_fossa: bool = None,
+        static_pressure_drops: bool = None,
+        radiation_type: int = None,
         ) -> Dict[ str, np.ndarray | int | None ]:
     """
     Compute the transfer function from a vocal tract state.
@@ -1433,7 +1473,38 @@ def tract_state_to_transfer_function(
     magnitude_spectrum = None
     phase_spectrum = None
     cdef int cNumSpectrumSamples = n_spectrum_samples
-    cOpts = NULL
+    cdef TransferFunctionOptions cOptsStruct
+    cdef TransferFunctionOptions *cOpts = NULL
+
+    # If any option is specified, build a custom options struct
+    _any_opt = any(x is not None for x in [
+        boundary_layer, heat_conduction, soft_walls, hagen_resistance,
+        inner_length_corrections, lumped_elements, paranasal_sinuses,
+        piriform_fossa, static_pressure_drops, radiation_type])
+    if _any_opt:
+        vtlGetDefaultTransferFunctionOptions(&cOptsStruct)
+        if boundary_layer is not None:
+            cOptsStruct.boundaryLayer = boundary_layer
+        if heat_conduction is not None:
+            cOptsStruct.heatConduction = heat_conduction
+        if soft_walls is not None:
+            cOptsStruct.softWalls = soft_walls
+        if hagen_resistance is not None:
+            cOptsStruct.hagenResistance = hagen_resistance
+        if inner_length_corrections is not None:
+            cOptsStruct.innerLengthCorrections = inner_length_corrections
+        if lumped_elements is not None:
+            cOptsStruct.lumpedElements = lumped_elements
+        if paranasal_sinuses is not None:
+            cOptsStruct.paranasalSinuses = paranasal_sinuses
+        if piriform_fossa is not None:
+            cOptsStruct.piriformFossa = piriform_fossa
+        if static_pressure_drops is not None:
+            cOptsStruct.staticPressureDrops = static_pressure_drops
+        if radiation_type is not None:
+            cOptsStruct.radiationType = <RadiationType>radiation_type
+        cOpts = &cOptsStruct
+
     cdef np.ndarray[ np.float64_t, ndim=1 ] cTractParams = tract_state.ravel()
     cdef np.ndarray[ np.float64_t, ndim=1 ] cMagnitude = np.zeros(
         n_spectrum_samples,
@@ -1663,8 +1734,1128 @@ def tract_state_to_tube_state(
     return tube_state
 
 
+def tract_state_to_full_tube(
+        tract_state: np.ndarray,
+        ) -> dict:
+    """
+    Compute the FULL tube (all 93 sections) from a vocal tract state.
 
+    Unlike tract_state_to_tube_state which only returns the 40 pharynx/mouth
+    sections, this function returns all 93 sections including trachea, glottis,
+    nose, piriform fossa, and paranasal sinuses.
+
+    After computing the tube, the glottis area is set to zero (matching
+    vtlGetTransferFunction behavior).
+
+    Parameters
+    ----------
+    tract_state : np.ndarray
+        1D array of vocal tract parameters.
+
+    Returns
+    -------
+    dict
+        Dictionary with keys:
+        - 'tube_length': np.ndarray (93,) - Section lengths in cm.
+        - 'tube_area': np.ndarray (93,) - Section areas in cm^2.
+        - 'tube_volume': np.ndarray (93,) - Section volumes in cm^3.
+        - 'tube_wall_mass': np.ndarray (93,) - Wall mass in CGS.
+        - 'tube_wall_stiffness': np.ndarray (93,) - Wall stiffness in CGS.
+        - 'tube_wall_resistance': np.ndarray (93,) - Wall resistance in CGS.
+        - 'tube_articulator': np.ndarray (93,) - Articulator indices.
+        - 'incisor_position': float - Incisor position in cm.
+        - 'tongue_tip_side_elevation': float - TS3 parameter.
+        - 'velum_opening': float - Velum opening area in cm^2.
+        - 'piriform_fossa_length': float - Piriform fossa length in cm.
+        - 'piriform_fossa_volume': float - Piriform fossa volume in cm^3.
+    """
+    vtl_constants = get_constants()
+
+    if tract_state.ndim != 1:
+        raise ValueError('Tract state must be a 1D array.')
+    if tract_state.shape[0] != vtl_constants['n_tract_params']:
+        raise ValueError(
+            f"Tract state has length {tract_state.shape[0]}, "
+            f"but should have length {vtl_constants['n_tract_params']}."
+        )
+
+    cdef int NUM_SECTIONS = 93
+    cdef np.ndarray[np.float64_t, ndim=1] cTractParams = tract_state.astype(np.float64).ravel()
+    cdef np.ndarray[np.float64_t, ndim=1] cLength = np.zeros(NUM_SECTIONS, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] cArea = np.zeros(NUM_SECTIONS, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] cVolume = np.zeros(NUM_SECTIONS, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] cWallMass = np.zeros(NUM_SECTIONS, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] cWallStiffness = np.zeros(NUM_SECTIONS, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] cWallResistance = np.zeros(NUM_SECTIONS, dtype='float64')
+    cdef np.ndarray[int, ndim=1] cArticulator = np.zeros(NUM_SECTIONS, dtype='i')
+    cdef double cIncisorPos = 0.0
+    cdef double cTongueTipSideElev = 0.0
+    cdef double cVelumOpening = 0.0
+    cdef double cFossaLength = 0.0
+    cdef double cFossaVolume = 0.0
+
+    value = vtlTractToFullTube(
+        &cTractParams[0],
+        &cLength[0],
+        &cArea[0],
+        &cVolume[0],
+        &cWallMass[0],
+        &cWallStiffness[0],
+        &cWallResistance[0],
+        &cArticulator[0],
+        &cIncisorPos,
+        &cTongueTipSideElev,
+        &cVelumOpening,
+        &cFossaLength,
+        &cFossaVolume,
+    )
+
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name='vtlTractToFullTube',
+                return_value=value,
+                function_args=dict(tract_state=tract_state),
+            )
+        )
+
+    return dict(
+        tube_length=np.array(cLength),
+        tube_area=np.array(cArea),
+        tube_volume=np.array(cVolume),
+        tube_wall_mass=np.array(cWallMass),
+        tube_wall_stiffness=np.array(cWallStiffness),
+        tube_wall_resistance=np.array(cWallResistance),
+        tube_articulator=np.array(cArticulator),
+        incisor_position=float(cIncisorPos),
+        tongue_tip_side_elevation=float(cTongueTipSideElev),
+        velum_opening=float(cVelumOpening),
+        piriform_fossa_length=float(cFossaLength),
+        piriform_fossa_volume=float(cFossaVolume),
+    )
+
+
+def glottis_calc_geometry(
+        control_params: np.ndarray,
+        ) -> dict:
+    """
+    Set control parameters and compute glottis geometry.
+
+    Parameters
+    ----------
+    control_params : np.ndarray
+        1D array of control parameter values (numGlottisParams elements).
+
+    Returns
+    -------
+    dict
+        Dictionary with keys:
+        - 'derived_params': np.ndarray of derived parameter values
+        - 'tube_lengths': np.ndarray of tube section lengths (2 elements)
+        - 'tube_areas': np.ndarray of tube section areas (2 elements)
+    """
+    cdef np.ndarray[np.float64_t, ndim=1] cControlParams = np.asarray(control_params, dtype='float64').ravel()
+    # Buffer size 32: accommodates all glottis models (Geometric=8, Triangular=11, TwoMass=11)
+    cdef np.ndarray[np.float64_t, ndim=1] cDerivedParams = np.zeros(32, dtype='float64')
+    cdef int cNumDerived = 0
+    cdef np.ndarray[np.float64_t, ndim=1] cTubeLength = np.zeros(2, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] cTubeArea = np.zeros(2, dtype='float64')
+
+    value = vtlGlottisCalcGeometry(
+        &cControlParams[0],
+        &cDerivedParams[0],
+        &cNumDerived,
+        &cTubeLength[0],
+        &cTubeArea[0],
+    )
+
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name='vtlGlottisCalcGeometry',
+                return_value=value,
+            )
+        )
+
+    return dict(
+        derived_params=np.array(cDerivedParams[:cNumDerived]),
+        tube_lengths=np.array(cTubeLength),
+        tube_areas=np.array(cTubeArea),
+    )
+
+
+def glottis_inc_time(
+        time_increment_s: float,
+        pressure_dpa: np.ndarray,
+        control_params: np.ndarray,
+        ) -> dict:
+    """
+    Advance glottis simulation by one time step.
+
+    Parameters
+    ----------
+    time_increment_s : float
+        Time step in seconds.
+    pressure_dpa : np.ndarray
+        Pressure values (4 elements):
+        [subglottal, lower_glottis, upper_glottis, supraglottal].
+    control_params : np.ndarray
+        Control parameter values (numGlottisParams elements).
+
+    Returns
+    -------
+    dict
+        Dictionary with keys:
+        - 'derived_params': np.ndarray of derived parameter values
+        - 'tube_lengths': np.ndarray of tube section lengths (2 elements)
+        - 'tube_areas': np.ndarray of tube section areas (2 elements)
+    """
+    cdef double cTimeIncrement = time_increment_s
+    cdef np.ndarray[np.float64_t, ndim=1] cPressure = np.asarray(pressure_dpa, dtype='float64').ravel()
+    cdef np.ndarray[np.float64_t, ndim=1] cControlParams = np.asarray(control_params, dtype='float64').ravel()
+    # Buffer size 32: accommodates all glottis models (Geometric=8, Triangular=11, TwoMass=11)
+    cdef np.ndarray[np.float64_t, ndim=1] cDerivedParams = np.zeros(32, dtype='float64')
+    cdef int cNumDerived = 0
+    cdef np.ndarray[np.float64_t, ndim=1] cTubeLength = np.zeros(2, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] cTubeArea = np.zeros(2, dtype='float64')
+
+    value = vtlGlottisIncTime(
+        cTimeIncrement,
+        &cPressure[0],
+        &cControlParams[0],
+        &cDerivedParams[0],
+        &cNumDerived,
+        &cTubeLength[0],
+        &cTubeArea[0],
+    )
+
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name='vtlGlottisIncTime',
+                return_value=value,
+            )
+        )
+
+    return dict(
+        derived_params=np.array(cDerivedParams[:cNumDerived]),
+        tube_lengths=np.array(cTubeLength),
+        tube_areas=np.array(cTubeArea),
+    )
+
+
+def glottis_reset_motion():
+    """Reset the motion state of the glottis model (phase, time, filters)."""
+    value = vtlGlottisResetMotion()
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name='vtlGlottisResetMotion',
+                return_value=value,
+            )
+        )
+
+
+def get_glottis_static_param_info() -> list:
+    """
+    Get static parameter info for the current glottis model.
+
+    Returns
+    -------
+    list of dict
+        Each dict has keys: 'name', 'min', 'max', 'standard'.
+    """
+    # Buffer sizes accommodate all glottis models (Geometric=4, Triangular=16, TwoMass=20)
+    cdef char[1024] cNames
+    cdef np.ndarray[np.float64_t, ndim=1] cMin = np.zeros(32, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] cMax = np.zeros(32, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] cStandard = np.zeros(32, dtype='float64')
+    cdef int cNumParams = 0
+
+    value = vtlGetGlottisStaticParamInfo(
+        cNames,
+        &cMin[0],
+        &cMax[0],
+        &cStandard[0],
+        &cNumParams,
+    )
+
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name='vtlGetGlottisStaticParamInfo',
+                return_value=value,
+            )
+        )
+
+    names = cNames.decode('utf-8').split('\t')
+    params = []
+    for i in range(cNumParams):
+        params.append(dict(
+            name=names[i] if i < len(names) else f'param_{i}',
+            min=float(cMin[i]),
+            max=float(cMax[i]),
+            standard=float(cStandard[i]),
+        ))
+
+    return params
+
+
+# ===========================================================================
+# TDS (Time-Domain Simulation) Component Testing API
+# ===========================================================================
+
+NUM_TDS_SECTIONS = 93
+NUM_TDS_BRANCH_CURRENTS = 97
+
+
+def tds_set_options(
+    generate_noise_sources: bool = True,
+    turbulence_losses: bool = True,
+    soft_walls: bool = True,
+    radiation_from_skin: bool = True,
+    piriform_fossa: bool = True,
+    inner_length_corrections: bool = False,
+    transvelar_coupling: bool = False,
+):
+    """Set TDS options.
+
+    Parameters
+    ----------
+    generate_noise_sources : bool
+        Enable/disable noise source generation.
+    turbulence_losses : bool
+        Consider fluid dynamic losses due to turbulence.
+    soft_walls : bool
+        Consider losses due to soft walls.
+    radiation_from_skin : bool
+        Allow sound radiation from the skin.
+    piriform_fossa : bool
+        Include the piriform fossa.
+    inner_length_corrections : bool
+        Additional inductivities between adjacent sections.
+    transvelar_coupling : bool
+        Sound transmission through the velum tissue.
+    """
+    value = vtlTdsSetOptions(
+        generate_noise_sources,
+        turbulence_losses,
+        soft_walls,
+        radiation_from_skin,
+        piriform_fossa,
+        inner_length_corrections,
+        transvelar_coupling,
+    )
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name='vtlTdsSetOptions',
+                return_value=value,
+            )
+        )
+
+
+def tds_reset_motion():
+    """Reset the TDS model motion state (pressures, currents, filters)."""
+    value = vtlTdsResetMotion()
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name='vtlTdsResetMotion',
+                return_value=value,
+            )
+        )
+
+
+def set_fossa_dims(length_cm: float, volume_cm3: float):
+    """Set piriform fossa dimensions on the global tube object.
+
+    This modifies the global tube used by synthesis_add_tube() so that
+    it uses custom fossa dimensions instead of the default 3.0/2.0.
+
+    Args:
+        length_cm: Fossa length in cm.
+        volume_cm3: Fossa volume in cm^3.
+    """
+    value = vtlSetFossaDims(length_cm, volume_cm3)
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name='vtlSetFossaDims',
+                return_value=value,
+            )
+        )
+
+
+def synthesis_reset():
+    """Reset the incremental Synthesizer (using vtlSynthesisAddTube/AddTract)."""
+    value = vtlSynthesisReset()
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name='vtlSynthesisReset',
+                return_value=value,
+            )
+        )
+
+
+def synthesis_add_tube(
+        num_new_samples: int,
+        tube_length: np.ndarray,
+        tube_area: np.ndarray,
+        tube_articulator: np.ndarray,
+        incisor_pos_cm: float,
+        velum_opening_cm2: float,
+        tongue_tip_side_elevation: float,
+        glottis_params: np.ndarray,
+        ) -> np.ndarray:
+    """Incremental tube-based synthesis. Uses a global Tube with DEFAULT
+    static cavity dimensions (fossa 3.0/2.0, subglottal 23.0, nasal 11.4).
+
+    The first call after synthesis_reset() should use num_new_samples=0 to
+    initialise the tube state. Subsequent calls generate audio.
+
+    Parameters
+    ----------
+    num_new_samples : int
+        Number of audio samples to generate.
+    tube_length : np.ndarray
+        PM section lengths (n_tube_sections,).
+    tube_area : np.ndarray
+        PM section areas (n_tube_sections,).
+    tube_articulator : np.ndarray
+        PM section articulators (n_tube_sections,).
+    incisor_pos_cm : float
+        Incisor position.
+    velum_opening_cm2 : float
+        Velum opening area.
+    tongue_tip_side_elevation : float
+        Tongue tip side elevation.
+    glottis_params : np.ndarray
+        Glottis control parameters (n_glottis_params,).
+
+    Returns
+    -------
+    np.ndarray
+        Audio samples of shape (num_new_samples,).
+    """
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cAudio = np.zeros(
+        max(num_new_samples, 1), dtype='float64')
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cTubeLength = np.array(
+        tube_length, dtype='float64').ravel()
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cTubeArea = np.array(
+        tube_area, dtype='float64').ravel()
+    cdef np.ndarray[ int, ndim=1 ] cTubeArticulator = np.array(
+        tube_articulator, dtype='i').ravel()
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cGlottisParams = np.array(
+        glottis_params, dtype='float64').ravel()
+
+    value = vtlSynthesisAddTube(
+        num_new_samples,
+        &cAudio[0],
+        &cTubeLength[0],
+        &cTubeArea[0],
+        &cTubeArticulator[0],
+        incisor_pos_cm,
+        velum_opening_cm2,
+        tongue_tip_side_elevation,
+        &cGlottisParams[0],
+    )
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name='vtlSynthesisAddTube',
+                return_value=value,
+            )
+        )
+    return cAudio[:num_new_samples]
+
+
+def tds_set_tube_and_run(
+        tube_length: np.ndarray,
+        tube_area: np.ndarray,
+        tube_articulator: np.ndarray,
+        incisor_pos_cm: float,
+        velum_opening_cm2: float,
+        tongue_tip_side_elevation: float = 0.0,
+        filtering: bool = False,
+        pressure_source_section: int = -1,
+        pressure_source_amp: float = 0.0,
+        ) -> dict:
+    """Set tube geometry on the TDS model, run one time step, return all state.
+
+    Parameters
+    ----------
+    tube_length : np.ndarray
+        Pharynx+mouth section lengths (40 elements).
+    tube_area : np.ndarray
+        Pharynx+mouth section areas (40 elements).
+    tube_articulator : np.ndarray
+        Pharynx+mouth articulators (40 elements, int).
+    incisor_pos_cm : float
+        Position of the incisors.
+    velum_opening_cm2 : float
+        Naso-pharyngeal port area.
+    tongue_tip_side_elevation : float
+        TS3 parameter.
+    filtering : bool
+        Apply area smoothing filter.
+    pressure_source_section : int
+        Section index for pressure source (-1 = none).
+    pressure_source_amp : float
+        Pressure source amplitude in dPa.
+
+    Returns
+    -------
+    dict
+        Dictionary with keys:
+        - 'sec_area': (93,) section areas
+        - 'sec_length': (93,) section lengths
+        - 'sec_R0': (93,) left resistance
+        - 'sec_R1': (93,) right resistance
+        - 'sec_L': (93,) inductance
+        - 'sec_C': (93,) capacitance
+        - 'sec_D': (93,) D values
+        - 'sec_E': (93,) E values
+        - 'sec_alpha': (93,) wall vibration alpha
+        - 'sec_beta': (93,) wall vibration beta
+        - 'sec_pressure': (93,) pressure after step
+        - 'bc_magnitude': (97,) branch current magnitudes
+        - 'mouth_flow': float
+        - 'nostril_flow': float
+        - 'skin_flow': float
+    """
+    cdef np.ndarray[np.float64_t, ndim=1] cLength = np.ascontiguousarray(
+        tube_length.ravel(), dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] cArea = np.ascontiguousarray(
+        tube_area.ravel(), dtype='float64')
+    cdef np.ndarray[int, ndim=1] cArt = np.ascontiguousarray(
+        tube_articulator.ravel(), dtype='i')
+
+    # Output arrays
+    cdef np.ndarray[np.float64_t, ndim=1] oArea = np.zeros(NUM_TDS_SECTIONS, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] oLength = np.zeros(NUM_TDS_SECTIONS, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] oR0 = np.zeros(NUM_TDS_SECTIONS, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] oR1 = np.zeros(NUM_TDS_SECTIONS, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] oL = np.zeros(NUM_TDS_SECTIONS, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] oC = np.zeros(NUM_TDS_SECTIONS, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] oD = np.zeros(NUM_TDS_SECTIONS, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] oE = np.zeros(NUM_TDS_SECTIONS, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] oAlpha = np.zeros(NUM_TDS_SECTIONS, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] oBeta = np.zeros(NUM_TDS_SECTIONS, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] oPressure = np.zeros(NUM_TDS_SECTIONS, dtype='float64')
+    cdef np.ndarray[np.float64_t, ndim=1] oBcMag = np.zeros(NUM_TDS_BRANCH_CURRENTS, dtype='float64')
+    cdef double oMouth = 0.0, oNostril = 0.0, oSkin = 0.0
+
+    value = vtlTdsSetTubeAndRun(
+        &cLength[0], &cArea[0], &cArt[0],
+        incisor_pos_cm, velum_opening_cm2, tongue_tip_side_elevation,
+        filtering, pressure_source_section, pressure_source_amp,
+        &oArea[0], &oLength[0],
+        &oR0[0], &oR1[0], &oL[0], &oC[0],
+        &oD[0], &oE[0], &oAlpha[0], &oBeta[0],
+        &oPressure[0],
+        &oBcMag[0],
+        &oMouth, &oNostril, &oSkin,
+    )
+
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name='vtlTdsSetTubeAndRun',
+                return_value=value,
+            )
+        )
+
+    return dict(
+        sec_area=np.array(oArea),
+        sec_length=np.array(oLength),
+        sec_R0=np.array(oR0),
+        sec_R1=np.array(oR1),
+        sec_L=np.array(oL),
+        sec_C=np.array(oC),
+        sec_D=np.array(oD),
+        sec_E=np.array(oE),
+        sec_alpha=np.array(oAlpha),
+        sec_beta=np.array(oBeta),
+        sec_pressure=np.array(oPressure),
+        bc_magnitude=np.array(oBcMag),
+        mouth_flow=float(oMouth),
+        nostril_flow=float(oNostril),
+        skin_flow=float(oSkin),
+    )
+
+def get_tl_intermediate_values(
+        tract_params: np.ndarray,
+        n_samples: int = 1000,
+        options: dict = None,
+        freq_index: int = 0,
+        ) -> dict:
+    """Get intermediate matrices and impedances of the TL model computation."""
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cTractParams = np.array( tract_params, dtype='float64' )
+    cdef int cNumSpectrumSamples = n_samples
+    cdef int cFreqIndex = freq_index
+    cdef TransferFunctionOptions cOpts
     
+    if options is not None:
+        cOpts.spectrumType = options.get('spectrum_type', NO_RADIATION)
+        cOpts.radiationType = options.get('radiation_type', SPECTRUM_UU)
+        cOpts.boundaryLayer = options.get('boundary_layer', True)
+        cOpts.heatConduction = options.get('heat_conduction', True)
+        cOpts.softWalls = options.get('soft_walls', True)
+        cOpts.hagenResistance = options.get('hagen_resistance', True)
+        cOpts.innerLengthCorrections = options.get('inner_length_corrections', True)
+        cOpts.lumpedElements = options.get('lumped_elements', False)
+        cOpts.paranasalSinuses = options.get('paranasal_sinuses', True)
+        cOpts.piriformFossa = options.get('piriform_fossa', True)
+        cOpts.staticPressureDrops = options.get('static_pressure_drops', True)
+    
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cMatrixARe = np.empty( 93, dtype='float64' )
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cMatrixAIm = np.empty( 93, dtype='float64' )
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cMatrixBRe = np.empty( 93, dtype='float64' )
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cMatrixBIm = np.empty( 93, dtype='float64' )
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cMatrixCRe = np.empty( 93, dtype='float64' )
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cMatrixCIm = np.empty( 93, dtype='float64' )
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cMatrixDRe = np.empty( 93, dtype='float64' )
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cMatrixDIm = np.empty( 93, dtype='float64' )
+    
+    cdef double cfossa_input_imp_re = 0
+    cdef double cfossa_input_imp_im = 0
+    cdef double cnose_rad_imp_re = 0
+    cdef double cnose_rad_imp_im = 0
+    cdef double cmouth_rad_imp_re = 0
+    cdef double cmouth_rad_imp_im = 0
+    
+    if options is None:
+        value = vtlGetTLIntermediateValues(
+            &cTractParams[0],
+            cNumSpectrumSamples,
+            NULL,
+            cFreqIndex,
+            &cMatrixARe[0], &cMatrixAIm[0],
+            &cMatrixBRe[0], &cMatrixBIm[0],
+            &cMatrixCRe[0], &cMatrixCIm[0],
+            &cMatrixDRe[0], &cMatrixDIm[0],
+            &cfossa_input_imp_re, &cfossa_input_imp_im,
+            &cnose_rad_imp_re, &cnose_rad_imp_im,
+            &cmouth_rad_imp_re, &cmouth_rad_imp_im
+        )
+    else:
+        value = vtlGetTLIntermediateValues(
+            &cTractParams[0],
+            cNumSpectrumSamples,
+            &cOpts,
+            cFreqIndex,
+            &cMatrixARe[0], &cMatrixAIm[0],
+            &cMatrixBRe[0], &cMatrixBIm[0],
+            &cMatrixCRe[0], &cMatrixCIm[0],
+            &cMatrixDRe[0], &cMatrixDIm[0],
+            &cfossa_input_imp_re, &cfossa_input_imp_im,
+            &cnose_rad_imp_re, &cnose_rad_imp_im,
+            &cmouth_rad_imp_re, &cmouth_rad_imp_im
+        )
+        
+    if value != 0:
+        raise VtlApiError(f"vtlGetTLIntermediateValues failed with code {value}")
+        
+    return dict(
+        matrix_a = np.array(cMatrixARe) + 1j * np.array(cMatrixAIm),
+        matrix_b = np.array(cMatrixBRe) + 1j * np.array(cMatrixBIm),
+        matrix_c = np.array(cMatrixCRe) + 1j * np.array(cMatrixCIm),
+        matrix_d = np.array(cMatrixDRe) + 1j * np.array(cMatrixDIm),
+        fossa_input_imp = cfossa_input_imp_re + 1j * cfossa_input_imp_im,
+        nose_rad_imp = cnose_rad_imp_re + 1j * cnose_rad_imp_im,
+        mouth_rad_imp = cmouth_rad_imp_re + 1j * cmouth_rad_imp_im,
+    )
+
+NUM_CROSS_SECTIONS = 129
+
+def get_cross_sections(
+        tract_state: np.ndarray,
+        ) -> dict:
+    """
+    Get the 129 cross-section areas, positions, and articulators from the
+    VocalTract model for a given tract state.
+
+    Parameters
+    ----------
+    tract_state : np.ndarray
+        An array representing the vocal tract state with numVocalTractParams
+        elements.
+
+    Returns
+    -------
+    dict
+        A dictionary with keys:
+        - 'areas': np.ndarray of shape (129,) with cross-section areas in cm^2.
+        - 'positions': np.ndarray of shape (129,) with positions along the
+          center line in cm.
+        - 'articulators': np.ndarray of shape (129,) with articulator indices
+          (int).
+
+    Raises
+    ------
+    ValueError
+        If the input tract state is not a 1D array or has an incorrect length.
+    VtlApiError
+        If the C API call fails.
+    """
+    vtl_constants = get_constants()
+
+    if tract_state.ndim != 1:
+        raise ValueError( 'Tract state must be a 1D array.' )
+
+    if tract_state.shape[0] != vtl_constants[ 'n_tract_params' ]:
+        raise ValueError(
+            f"""
+            Tract state has length {tract_state.shape[0]},
+            but should have length {vtl_constants[ "n_tract_params" ]}.
+            """
+            )
+
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cTractParams = tract_state.astype( 'float64' ).ravel()
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cAreas = np.zeros( NUM_CROSS_SECTIONS, dtype='float64' )
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cPositions = np.zeros( NUM_CROSS_SECTIONS, dtype='float64' )
+    cdef np.ndarray[ int, ndim=1 ] cArticulators = np.zeros( NUM_CROSS_SECTIONS, dtype='i' )
+
+    value = vtlGetCrossSections(
+        &cTractParams[0],
+        &cAreas[0],
+        &cPositions[0],
+        &cArticulators[0],
+        )
+
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name = 'vtlGetCrossSections',
+                return_value = value,
+                function_args = dict(
+                    tract_state = tract_state,
+                )
+            )
+        )
+
+    return dict(
+        areas = np.array( cAreas ),
+        positions = np.array( cPositions ),
+        articulators = np.array( cArticulators ),
+    )
+
+
+NUM_PROFILE_SAMPLES = 96
+
+def get_profiles(
+        tract_state: np.ndarray,
+        centerline_index: int,
+        ) -> dict:
+    """
+    Get the upper and lower cross-sectional profiles at a specific
+    centerline index for the given vocal tract parameters.
+
+    Parameters
+    ----------
+    tract_state : np.ndarray
+        An array representing the vocal tract state with
+        numVocalTractParams (19) elements.
+    centerline_index : int
+        Index along the centerline (0..128).
+
+    Returns
+    -------
+    dict
+        A dictionary with keys:
+        - 'upper_profile': np.ndarray of shape (96,) with upper profile values.
+        - 'lower_profile': np.ndarray of shape (96,) with lower profile values.
+        - 'info': np.ndarray of shape (6,) with centerline info:
+            [point.x, point.y, normal.x, normal.y, area, pos].
+
+    Raises
+    ------
+    ValueError
+        If the input tract state is not a 1D array, has an incorrect
+        length, or the centerline index is out of range.
+    VtlApiError
+        If the C API call fails.
+    """
+    vtl_constants = get_constants()
+
+    if tract_state.ndim != 1:
+        raise ValueError( 'Tract state must be a 1D array.' )
+
+    if tract_state.shape[0] != vtl_constants[ 'n_tract_params' ]:
+        raise ValueError(
+            f"""
+            Tract state has length {tract_state.shape[0]},
+            but should have length {vtl_constants[ "n_tract_params" ]}.
+            """
+            )
+
+    if centerline_index < 0 or centerline_index >= NUM_CROSS_SECTIONS:
+        raise ValueError(
+            f"""
+            centerline_index {centerline_index} is out of range
+            [0, {NUM_CROSS_SECTIONS}).
+            """
+            )
+
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cTractParams = tract_state.astype( 'float64' ).ravel()
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cUpperProfile = np.zeros( NUM_PROFILE_SAMPLES, dtype='float64' )
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cLowerProfile = np.zeros( NUM_PROFILE_SAMPLES, dtype='float64' )
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cCenterlineInfo = np.zeros( 6, dtype='float64' )
+
+    value = vtlGetProfiles(
+        &cTractParams[0],
+        centerline_index,
+        &cUpperProfile[0],
+        &cLowerProfile[0],
+        &cCenterlineInfo[0],
+        )
+
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name = 'vtlGetProfiles',
+                return_value = value,
+                function_args = dict(
+                    tract_state = tract_state,
+                    centerline_index = centerline_index,
+                )
+            )
+        )
+
+    return dict(
+        upper_profile = np.array( cUpperProfile ),
+        lower_profile = np.array( cLowerProfile ),
+        info = np.array( cCenterlineInfo ),
+    )
+
+
+def get_centerline(
+        tract_state: np.ndarray,
+        ) -> np.ndarray:
+    """
+    Get all 129 centerline points for the given vocal tract parameters.
+
+    Parameters
+    ----------
+    tract_state : np.ndarray
+        An array representing the vocal tract state with
+        numVocalTractParams (19) elements.
+
+    Returns
+    -------
+    np.ndarray
+        Array of shape (129, 5) with columns [x, y, normal_x, normal_y, pos].
+    """
+    vtl_constants = get_constants()
+
+    if tract_state.ndim != 1:
+        raise ValueError( 'Tract state must be a 1D array.' )
+
+    if tract_state.shape[0] != vtl_constants[ 'n_tract_params' ]:
+        raise ValueError(
+            f"""
+            Tract state has length {tract_state.shape[0]},
+            but should have length {vtl_constants[ "n_tract_params" ]}.
+            """
+            )
+
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cTractParams = tract_state.astype( 'float64' ).ravel()
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cCenterlineData = np.zeros( NUM_CROSS_SECTIONS * 5, dtype='float64' )
+
+    value = vtlGetCenterline(
+        &cTractParams[0],
+        &cCenterlineData[0],
+        )
+
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name = 'vtlGetCenterline',
+                return_value = value,
+                function_args = dict(
+                    tract_state = tract_state,
+                )
+            )
+        )
+
+    return np.array( cCenterlineData ).reshape( NUM_CROSS_SECTIONS, 5 )
+
+
+def get_outlines(
+        tract_state: np.ndarray,
+        ) -> dict:
+    """
+    Get the 4 outlines (upper, lower, tongue, epiglottis) for centerline computation.
+
+    Returns
+    -------
+    dict with keys 'upper', 'lower', 'tongue', 'epiglottis', each np.ndarray of shape (n, 2).
+    """
+    vtl_constants = get_constants()
+    if tract_state.ndim != 1 or tract_state.shape[0] != vtl_constants[ 'n_tract_params' ]:
+        raise ValueError( 'Invalid tract_state shape.' )
+
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cTractParams = tract_state.astype( 'float64' ).ravel()
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cOutlineData = np.zeros( 1600, dtype='float64' )
+    cdef np.ndarray[ int, ndim=1 ] cOutlineSizes = np.zeros( 4, dtype=np.intc )
+
+    value = vtlGetOutlines(
+        &cTractParams[0],
+        &cOutlineData[0],
+        &cOutlineSizes[0],
+        )
+
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name = 'vtlGetOutlines',
+                return_value = value,
+                function_args = dict( tract_state = tract_state ),
+            )
+        )
+
+    names = ['upper', 'lower', 'tongue', 'epiglottis']
+    result = {}
+    offset = 0
+    for idx, name in enumerate(names):
+        n = cOutlineSizes[idx]
+        result[name] = np.array( cOutlineData[offset:offset + n * 2] ).reshape( n, 2 )
+        offset += n * 2
+
+    return result
+
+
+def get_tongue_rib_data(
+        tract_state: np.ndarray,
+        ) -> np.ndarray:
+    """Get tongue rib data: (N, 6) = [px, py, nx, ny, leftH, rightH]."""
+    vtl_constants = get_constants()
+    if tract_state.ndim != 1 or tract_state.shape[0] != vtl_constants[ 'n_tract_params' ]:
+        raise ValueError( 'Invalid tract_state shape.' )
+
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cTractParams = tract_state.astype( 'float64' ).ravel()
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cRibData = np.zeros( 50 * 6, dtype='float64' )
+    cdef int cNumRibs = 0
+
+    value = vtlGetTongueRibData(
+        &cTractParams[0],
+        &cRibData[0],
+        &cNumRibs,
+        )
+
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name = 'vtlGetTongueRibData',
+                return_value = value,
+                function_args = dict( tract_state = tract_state ),
+            )
+        )
+
+    return np.array( cRibData[:cNumRibs * 6] ).reshape( cNumRibs, 6 )
+
+
+def get_tongue_width_bounds(
+        tract_state: np.ndarray,
+        ) -> np.ndarray:
+    """Get tongue rib width bounds: (N, 2) = [minX, maxX]."""
+    vtl_constants = get_constants()
+    if tract_state.ndim != 1 or tract_state.shape[0] != vtl_constants[ 'n_tract_params' ]:
+        raise ValueError( 'Invalid tract_state shape.' )
+
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cTractParams = tract_state.astype( 'float64' ).ravel()
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cBoundsData = np.zeros( 50 * 2, dtype='float64' )
+    cdef int cNumRibs = 0
+
+    value = vtlGetTongueWidthBounds(
+        &cTractParams[0],
+        &cBoundsData[0],
+        &cNumRibs,
+        )
+
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name = 'vtlGetTongueWidthBounds',
+                return_value = value,
+                function_args = dict( tract_state = tract_state ),
+            )
+        )
+
+    return np.array( cBoundsData[:cNumRibs * 2] ).reshape( cNumRibs, 2 )
+
+
+def get_surface_vertices(
+        tract_state: np.ndarray,
+        surface_index: int,
+        ) -> np.ndarray:
+    """Get all vertex positions for a specific surface.
+
+    Returns ndarray of shape (numRibs, numRibPoints, 3) with (x, y, z) per vertex.
+    """
+    vtl_constants = get_constants()
+    if tract_state.ndim != 1 or tract_state.shape[0] != vtl_constants[ 'n_tract_params' ]:
+        raise ValueError( 'Invalid tract_state shape.' )
+
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cTractParams = tract_state.astype( 'float64' ).ravel()
+    # Max surface size: 100 ribs * 50 rib points * 3 coords
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cVertexData = np.zeros( 100 * 50 * 3, dtype='float64' )
+    cdef int cNumRibs = 0
+    cdef int cNumRibPoints = 0
+
+    value = vtlGetSurfaceVertices(
+        &cTractParams[0],
+        surface_index,
+        &cVertexData[0],
+        &cNumRibs,
+        &cNumRibPoints,
+        )
+
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name = 'vtlGetSurfaceVertices',
+                return_value = value,
+                function_args = dict( tract_state = tract_state, surface_index = surface_index ),
+            )
+        )
+
+    n = cNumRibs * cNumRibPoints * 3
+    return np.array( cVertexData[:n] ).reshape( cNumRibs, cNumRibPoints, 3 )
+
+
+def get_cuts(
+        tract_state: np.ndarray,
+        centerline_index: int,
+        ) -> dict:
+    """Get raw triangle intersection cuts at a specific centerline index.
+
+    Returns dict with:
+        'cuts': ndarray of shape (numCuts, 8) where each row is
+                [P0.x, P0.y, P1.x, P1.y, n.x, n.y, globalSurfaceIndex, localSurfaceIndex]
+        'num_cuts': int
+    """
+    vtl_constants = get_constants()
+    if tract_state.ndim != 1 or tract_state.shape[0] != vtl_constants[ 'n_tract_params' ]:
+        raise ValueError( 'Invalid tract_state shape.' )
+
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cTractParams = tract_state.astype( 'float64' ).ravel()
+    cdef np.ndarray[ np.float64_t, ndim=1 ] cCutData = np.zeros( 2048 * 8, dtype='float64' )
+    cdef int cNumCuts = 0
+
+    value = vtlGetCuts(
+        &cTractParams[0],
+        centerline_index,
+        &cCutData[0],
+        &cNumCuts,
+        )
+
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name = 'vtlGetCuts',
+                return_value = value,
+                function_args = dict( tract_state = tract_state, centerline_index = centerline_index ),
+            )
+        )
+
+    return dict(
+        cuts = np.array( cCutData[:cNumCuts * 8] ).reshape( cNumCuts, 8 ),
+        num_cuts = cNumCuts,
+    )
+
+
+def save_speaker(speaker_file_path: str) -> None:
+    """Save the currently loaded speaker to a .speaker XML file.
+
+    Parameters
+    ----------
+    speaker_file_path : str
+        Output file path.
+    """
+    cdef bytes cSpeakerPath = str(speaker_file_path).encode('utf-8')
+    value = vtlSaveSpeaker(cSpeakerPath)
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name='vtlSaveSpeaker',
+                return_value=value,
+                function_args=dict(speaker_file_path=speaker_file_path),
+            )
+        )
+
+
+def set_anatomy_from_age(age_months: int, is_male: bool) -> None:
+    """Apply anatomy parameters derived from age and gender.
+
+    Calls calcFromAge, restrictParams, and setFor on the loaded vocal tract.
+
+    Parameters
+    ----------
+    age_months : int
+        Age in months (minimum 12).
+    is_male : bool
+        True for male, False for female.
+    """
+    value = vtlSetAnatomyFromAge(age_months, is_male)
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name='vtlSetAnatomyFromAge',
+                return_value=value,
+                function_args=dict(age_months=age_months, is_male=is_male),
+            )
+        )
+
+
+def get_anatomy_params() -> np.ndarray:
+    """Get the 13 anatomy parameters from the loaded vocal tract.
+
+    Returns
+    -------
+    np.ndarray
+        Array of 13 doubles (anatomy parameter values).
+    """
+    cdef np.ndarray[np.float64_t, ndim=1] cParams = np.zeros(13, dtype='float64')
+    value = vtlGetAnatomyParams(&cParams[0])
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name='vtlGetAnatomyParams',
+                return_value=value,
+                function_args=dict(),
+            )
+        )
+    return cParams
+
+
+def set_anatomy_params(anatomy_params: np.ndarray) -> None:
+    """Set the 13 anatomy parameters on the loaded vocal tract.
+
+    Calls restrictParams and setFor internally.
+
+    Parameters
+    ----------
+    anatomy_params : np.ndarray
+        Array of 13 doubles with the anatomy parameter values.
+    """
+    cdef np.ndarray[np.float64_t, ndim=1] cParams = np.array(
+        anatomy_params, dtype='float64'
+    ).ravel()
+    if cParams.shape[0] != 13:
+        raise ValueError(f'Expected 13 anatomy params, got {cParams.shape[0]}')
+    value = vtlSetAnatomyParams(&cParams[0])
+    if value != 0:
+        raise VtlApiError(
+            get_api_exception(
+                function_name='vtlSetAnatomyParams',
+                return_value=value,
+                function_args=dict(anatomy_params=anatomy_params),
+            )
+        )
+
 
 # Function to be called at module exit
 atexit.register( _close )
