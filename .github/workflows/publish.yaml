@@ -84,6 +84,15 @@ jobs:
           # inside the (manylinux) build sandbox. CIBW_ENVIRONMENT forwards it
           # into every build environment, including Linux containers.
           CIBW_ENVIRONMENT: SETUPTOOLS_SCM_PRETEND_VERSION_FOR_VOCALTRACTLAB_CYTHON=${{ env.PKG_VERSION }}
+          # The backend DLL is built by setup.py and copied into
+          # vocaltractlab_cython/ (and shipped via package_data). delvewheel
+          # vendors the .pyd's dependencies but searches external paths only,
+          # so point it at that dir or it fails with "Unable to find library:
+          # vocaltractlabapi.dll" (newer delvewheel in cibuildwheel v4 is
+          # stricter than v2's, which found it implicitly).
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
+            delvewheel repair --add-path vocaltractlab_cython
+            -w {dest_dir} {wheel}
         uses: pypa/cibuildwheel@v4.1.0
 
       - uses: actions/upload-artifact@v4
