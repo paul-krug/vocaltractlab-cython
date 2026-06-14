@@ -1,4 +1,10 @@
-
+# cython: annotation_typing=False
+# Treat PEP 484 annotations (e.g. ``arg: bool``) as documentation only, not as
+# Cython coercion directives. Without this, Cython 3.x coerces annotated
+# arguments at the call boundary (e.g. ``bool("x") -> True``), which silently
+# accepts invalid input and bypasses the explicit isinstance() validation in
+# these bindings. Keeping it off makes input validation explicit and stable
+# across Cython versions.
 
 import os
 import atexit
