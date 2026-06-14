@@ -158,7 +158,11 @@ DEPENDENCIES = [
 
 setup_args = dict(
     name = 'vocaltractlab_cython',
-    version = '0.0.16',
+    # Version is derived from the git tag via setuptools_scm (use_scm_version
+    # below). Do NOT hard-code it here — a static value silently overrides the
+    # tag and ships the wrong version. In CI the release workflow injects
+    # SETUPTOOLS_SCM_PRETEND_VERSION_FOR_VOCALTRACTLAB_CYTHON from the release
+    # tag so the build never depends on git inside the wheel sandboxes.
     author='Paul Krug',
     url='https://github.com/paul-krug/vocaltractlab-cython',
     description = 'Cython wrapper for VocalTractLabApi',
@@ -191,7 +195,10 @@ setup_args = dict(
     },
     include_package_data = True,
     use_scm_version = True,
-    setup_requires = [ 'setuptools_scm' ],
+    # setuptools_scm is declared in pyproject.toml [build-system].requires so
+    # PEP 517 front-ends (pip / build / cibuildwheel) install it correctly.
+    # The legacy setup_requires path is intentionally omitted: it triggers an
+    # easy_install egg fetch into .eggs/ that pulls a broken setuptools_scm.
     install_requires=DEPENDENCIES,
 )
 
